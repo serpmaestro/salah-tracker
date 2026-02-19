@@ -2,21 +2,6 @@
 
 A beautiful, fully offline Islamic prayer tracker you can install on any phone like a native app.
 
----
-
-## 📱 How to Install on Your Phone
-
-### Option A — Easiest: Use GitHub Pages (Free Hosting)
-
-1. Create a free account at [github.com](https://github.com)
-2. Create a new **public repository** (e.g., `qaza-tracker`)
-3. Upload **all files from this folder** into the repository
-4. Go to repository **Settings → Pages → Source → main branch → / (root)**
-5. GitHub will give you a URL like: `https://yourusername.github.io/qaza-tracker/`
-6. Open that URL on your phone and follow the install steps below ↓
-
----
-
 ### Android — Chrome
 1. Open the app URL in **Chrome**
 2. Tap the **⋮ menu** (top right)
