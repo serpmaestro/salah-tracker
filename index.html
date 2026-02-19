@@ -1,0 +1,2800 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Qaza Tracker - Islamic Prayer Manager</title>
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#0f172a">
+    <link rel="apple-touch-icon" href="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIj48cmVjdCB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgZmlsbD0iIzBmMTcyYSIvPjxwYXRoIGQ9Ik05NiAzMmg5NiB2MTI4IGgtOTYiIGZpbGw9IiMxMGI5ODEiLz48dGV4dCB4PSI5NiIgeT0iMTIwIiBmaWxsPSIjZjFmNWY5IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iNzIiIHRleHQtYW5jaG9yPSJtaWRkbGUiPtmCPC90ZXh0Pjwvc3ZnPg==">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Outfit:wght@300;400;500;600;700&display=swap');
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            -webkit-tap-highlight-color: transparent;
+        }
+        
+        :root {
+            --bg-primary: #0f172a;
+            --bg-secondary: #1e293b;
+            --bg-card: #334155;
+            --accent-primary: #10b981;
+            --accent-secondary: #059669;
+            --accent-gold: #fbbf24;
+            --text-primary: #f1f5f9;
+            --text-secondary: #94a3b8;
+            --text-muted: #64748b;
+            --border: #475569;
+            --shadow: rgba(0, 0, 0, 0.3);
+            --gradient: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            --gradient-gold: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+        }
+        
+        body {
+            font-family: 'Outfit', -apple-system, BlinkMacSystemFont, sans-serif;
+            background: var(--bg-primary);
+            color: var(--text-primary);
+            min-height: 100vh;
+            overflow-x: hidden;
+            position: relative;
+        }
+        
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 30%, rgba(16, 185, 129, 0.05) 0%, transparent 50%),
+                radial-gradient(circle at 80% 70%, rgba(251, 191, 36, 0.03) 0%, transparent 50%);
+            pointer-events: none;
+            z-index: 0;
+        }
+        
+        .container {
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 20px;
+            padding-bottom: 100px;
+            position: relative;
+            z-index: 1;
+            animation: fadeIn 0.5s ease-out;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .screen {
+            display: none;
+            animation: slideIn 0.3s ease-out;
+        }
+        
+        .screen.active {
+            display: block;
+        }
+        
+        @keyframes slideIn {
+            from { opacity: 0; transform: translateX(20px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+            padding: 30px 20px;
+            background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-card) 100%);
+            border-radius: 24px;
+            border: 1px solid var(--border);
+            box-shadow: 0 8px 32px var(--shadow);
+        }
+        
+        .header h1 {
+            font-family: 'Amiri', serif;
+            font-size: 2.2rem;
+            font-weight: 700;
+            background: var(--gradient);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 8px;
+            letter-spacing: 0.5px;
+        }
+        
+        .header .subtitle {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            font-weight: 300;
+        }
+        
+        .durood-section {
+            background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%);
+            border: 1px solid rgba(16, 185, 129, 0.2);
+            border-radius: 16px;
+            padding: 20px;
+            margin-bottom: 30px;
+            text-align: center;
+        }
+        
+        .durood-section h3 {
+            font-family: 'Amiri', serif;
+            font-size: 1.3rem;
+            color: var(--accent-primary);
+            margin-bottom: 12px;
+            direction: rtl;
+        }
+        
+        .durood-section p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            line-height: 1.6;
+        }
+        
+        .card {
+            background: var(--bg-secondary);
+            border-radius: 20px;
+            padding: 28px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 16px var(--shadow);
+            transition: all 0.3s ease;
+        }
+        
+        .card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 24px var(--shadow);
+        }
+        
+        .card h2 {
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+            color: var(--text-primary);
+            font-weight: 600;
+        }
+        
+        .slider-group {
+            margin-bottom: 32px;
+        }
+        
+        .slider-label {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 12px;
+        }
+        
+        .slider-label span {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+        }
+        
+        .slider-value {
+            font-size: 1.8rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            min-width: 60px;
+            text-align: right;
+        }
+        
+        input[type="range"] {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: var(--bg-card);
+            outline: none;
+            -webkit-appearance: none;
+            appearance: none;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--gradient);
+            cursor: pointer;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+            transition: all 0.2s ease;
+        }
+        
+        input[type="range"]::-webkit-slider-thumb:hover {
+            transform: scale(1.1);
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.6);
+        }
+        
+        input[type="range"]::-moz-range-thumb {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: var(--gradient);
+            cursor: pointer;
+            border: none;
+            box-shadow: 0 2px 8px rgba(16, 185, 129, 0.4);
+            transition: all 0.2s ease;
+        }
+        
+        .prayer-select {
+            margin-bottom: 24px;
+        }
+        
+        .prayer-select label {
+            display: block;
+            margin-bottom: 12px;
+            color: var(--text-primary);
+            font-weight: 600;
+            font-size: 1.05rem;
+        }
+        
+        .frequency-grid {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .frequency-btn {
+            flex: 1;
+            min-width: calc(33.333% - 6px);
+            padding: 12px 8px;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            text-align: center;
+        }
+        
+        .frequency-btn:hover {
+            background: var(--bg-secondary);
+            transform: translateY(-1px);
+        }
+        
+        .frequency-btn.active {
+            background: var(--gradient);
+            border-color: var(--accent-primary);
+            color: white;
+            font-weight: 600;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        
+        .btn {
+            width: 100%;
+            padding: 16px 32px;
+            background: var(--gradient);
+            border: none;
+            border-radius: 16px;
+            color: white;
+            font-size: 1.1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 16px rgba(16, 185, 129, 0.3);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(16, 185, 129, 0.4);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+        }
+        
+        .btn-secondary {
+            background: var(--bg-card);
+            color: var(--text-primary);
+            box-shadow: 0 4px 16px var(--shadow);
+        }
+        
+        .btn-secondary:hover {
+            background: var(--bg-secondary);
+            box-shadow: 0 6px 20px var(--shadow);
+        }
+        
+        .btn-small {
+            padding: 10px 20px;
+            font-size: 0.9rem;
+            border-radius: 12px;
+        }
+        
+        .result-grid {
+            display: grid;
+            gap: 16px;
+            margin: 24px 0;
+        }
+        
+        .result-item {
+            background: var(--bg-card);
+            padding: 20px;
+            border-radius: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid var(--border);
+            transition: all 0.2s ease;
+        }
+        
+        .result-item:hover {
+            background: var(--bg-secondary);
+            transform: translateX(4px);
+        }
+        
+        .result-item .prayer-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .result-item .prayer-count {
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .plus-minus-btns {
+            display: flex;
+            gap: 8px;
+        }
+        
+        .plus-minus-btn {
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            border: none;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 1.2rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .plus-minus-btn:hover {
+            background: var(--accent-primary);
+            color: white;
+            transform: scale(1.1);
+        }
+        
+        .profile-list {
+            display: grid;
+            gap: 16px;
+        }
+        
+        .profile-card {
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            cursor: pointer;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .profile-card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 8px 24px var(--shadow);
+            border-color: var(--accent-primary);
+        }
+        
+        .profile-card h3 {
+            font-size: 1.3rem;
+            margin-bottom: 8px;
+            color: var(--text-primary);
+        }
+        
+        .profile-card p {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+        
+        .profile-actions {
+            display: flex;
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .profile-actions button {
+            flex: 1;
+            padding: 8px 16px;
+            border-radius: 8px;
+            border: none;
+            font-size: 0.85rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-open {
+            background: var(--gradient);
+            color: white;
+        }
+        
+        .btn-edit {
+            background: var(--bg-card);
+            color: var(--text-secondary);
+        }
+        
+        .btn-delete {
+            background: rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+        }
+        
+        .tracker-header {
+            background: var(--bg-secondary);
+            padding: 24px;
+            border-radius: 20px;
+            margin-bottom: 24px;
+            border: 1px solid var(--border);
+        }
+        
+        .tracker-date {
+            font-size: 1.2rem;
+            color: var(--text-primary);
+            margin-bottom: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .qaza-summary {
+            display: grid;
+            /* Responsive: wraps to multiple rows on small phones so Isha never cuts */
+            grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+            gap: 8px;
+            margin-top: 12px;
+        }
+        
+        .qaza-item {
+            text-align: center;
+            padding: 12px 8px;
+            background: var(--bg-card);
+            border-radius: 12px;
+            position: relative;
+        }
+        
+        .qaza-item .name {
+            font-size: 0.75rem;
+            color: var(--text-secondary);
+            margin-bottom: 4px;
+        }
+        
+        .qaza-item .count {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--accent-gold);
+            margin-bottom: 8px;
+        }
+        
+        .qaza-item .controls {
+            display: flex;
+            gap: 4px;
+            justify-content: center;
+        }
+        
+        .qaza-control-btn {
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
+            border: none;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .qaza-control-btn:hover {
+            background: var(--accent-primary);
+            color: white;
+            transform: scale(1.1);
+        }
+        
+        .prayer-tracker-list {
+            display: grid;
+            gap: 16px;
+        }
+        
+        .prayer-tracker-item {
+            background: var(--bg-secondary);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+        }
+        
+        .prayer-tracker-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 16px;
+        }
+        
+        .prayer-tracker-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .prayer-time {
+            font-size: 0.9rem;
+            color: var(--text-secondary);
+        }
+        
+        .prayer-actions {
+            display: grid;
+            grid-template-columns: 1fr 1fr 1fr;
+            gap: 8px;
+        }
+        
+        .prayer-action-btn {
+            padding: 12px 16px;
+            border: 2px solid var(--border);
+            background: var(--bg-card);
+            color: var(--text-secondary);
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .prayer-action-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .prayer-action-btn.active {
+            background: var(--gradient);
+            border-color: var(--accent-primary);
+            color: white;
+            box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+        }
+        
+        .prayer-action-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .btn-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 20px;
+        }
+        
+        .back-btn {
+            position: fixed;
+            top: 24px;
+            left: 24px;
+            width: 48px;
+            height: 48px;
+            border-radius: 50%;
+            background: var(--bg-secondary);
+            border: 1px solid var(--border);
+            color: var(--text-primary);
+            font-size: 1.3rem;
+            cursor: pointer;
+            box-shadow: 0 4px 16px var(--shadow);
+            transition: all 0.3s ease;
+            z-index: 100;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .back-btn.visible {
+            display: flex;
+        }
+        
+        .back-btn:hover {
+            transform: scale(1.1);
+            background: var(--accent-primary);
+            color: white;
+        }
+        
+        .calendar-icon {
+            cursor: pointer;
+            font-size: 1.5rem;
+            color: var(--accent-primary);
+            transition: all 0.2s ease;
+        }
+        
+        
+        /* Custom calendar badge (replaces 📅 emoji that always shows July 17) */
+        .cal-icon{
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            overflow: hidden;
+            display: inline-flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background: rgba(255,255,255,0.08);
+            border: 1px solid var(--border);
+        }
+        .cal-month{
+            width: 100%;
+            text-align: center;
+            font-size: 10px;
+            font-weight: 800;
+            letter-spacing: 0.6px;
+            padding: 2px 0;
+            background: var(--accent-primary);
+            color: #0f172a;
+        }
+        .cal-day{
+            font-size: 13px;
+            font-weight: 800;
+            line-height: 1;
+            padding-top: 2px;
+        }
+
+        /* SQT logo text */
+        .sqt-logo{
+            color: #33C272; /* light green */
+            font-weight: 900;
+            letter-spacing: 1px;
+        }
+.calendar-icon:hover {
+            transform: scale(1.1);
+            color: var(--accent-gold);
+        }
+        
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 1000;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            backdrop-filter: blur(4px);
+        }
+        
+        .modal.active {
+            display: flex;
+            animation: fadeIn 0.3s ease-out;
+        }
+        
+        .modal-content {
+            background: var(--bg-secondary);
+            border-radius: 24px;
+            padding: 32px;
+            max-width: 500px;
+            width: 100%;
+            max-height: 80vh;
+            overflow-y: auto;
+            border: 1px solid var(--border);
+            animation: slideUp 0.3s ease-out;
+        }
+        
+        @keyframes slideUp {
+            from { opacity: 0; transform: translateY(30px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        .modal h2 {
+            margin-bottom: 24px;
+            color: var(--text-primary);
+            font-size: 1.6rem;
+        }
+        
+        .calendar-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 8px;
+            margin-top: 16px;
+        }
+        
+        .calendar-day {
+            aspect-ratio: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            background: var(--bg-card);
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 0.9rem;
+            transition: all 0.2s ease;
+            border: 2px solid transparent;
+        }
+        
+        .calendar-day:hover {
+            background: var(--bg-secondary);
+            transform: scale(1.05);
+        }
+        
+        .calendar-day.today {
+            border-color: var(--accent-primary);
+            color: var(--accent-primary);
+            font-weight: 700;
+        }
+        
+        .calendar-day.has-data {
+            background: rgba(16, 185, 129, 0.2);
+        }
+        
+        .input-group {
+            margin-bottom: 20px;
+        }
+        
+        .input-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-secondary);
+            font-size: 0.9rem;
+            font-weight: 500;
+        }
+        
+        .input-group input,
+        .input-group select {
+            width: 100%;
+            padding: 14px 16px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 1rem;
+            font-family: 'Outfit', sans-serif;
+        }
+        
+        .input-group input:focus,
+        .input-group select:focus {
+            outline: none;
+            border-color: var(--accent-primary);
+            box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+        }
+        
+        .export-buttons {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-top: 24px;
+        }
+        
+        .btn-export {
+            padding: 12px 20px;
+            background: var(--bg-card);
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-primary);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .btn-export:hover {
+            background: var(--bg-secondary);
+            border-color: var(--accent-primary);
+            transform: translateY(-2px);
+        }
+        
+        .footer-credit {
+            text-align: center;
+            padding: 20px;
+            margin-top: 40px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            line-height: 1.8;
+        }
+        
+        .footer-credit .developer {
+            color: var(--accent-gold);
+            font-weight: 600;
+            font-size: 1rem;
+        }
+        
+        .footer-credit .title {
+            color: var(--text-secondary);
+            font-size: 0.85rem;
+        }
+        
+        .install-banner {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: var(--gradient);
+            padding: 16px 20px;
+            display: none;
+            align-items: center;
+            justify-content: space-between;
+            z-index: 200;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.3);
+        }
+        
+        .install-banner.visible {
+            display: flex;
+        }
+        
+        .install-banner .message {
+            flex: 1;
+            color: white;
+            font-weight: 600;
+        }
+        
+        .install-banner .btn-install {
+            padding: 10px 24px;
+            background: white;
+            color: var(--accent-primary);
+            border: none;
+            border-radius: 12px;
+            font-weight: 700;
+            cursor: pointer;
+            margin-left: 12px;
+        }
+        
+        .install-banner .btn-close {
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            margin-left: 8px;
+        }
+        
+        .report-selector {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .report-btn {
+            flex: 1;
+            padding: 12px;
+            background: var(--bg-card);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            color: var(--text-secondary);
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .report-btn.active {
+            background: var(--gradient);
+            border-color: var(--accent-primary);
+            color: white;
+        }
+        
+
+        /* Home Prayer Times Card */
+        .prayer-home-card {
+            padding: 18px;
+            margin-bottom: 16px;
+            background: linear-gradient(135deg, rgba(51,194,114,0.16), rgba(7,105,81,0.10));
+            border: 1px solid rgba(51,194,114,0.25);
+        }
+        .prayer-home-top {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            margin-bottom: 14px;
+        }
+        .prayer-home-left .prayer-home-name {
+            font-size: 1.8rem;
+            font-weight: 800;
+            letter-spacing: -0.5px;
+            color: var(--text-primary);
+            line-height: 1.1;
+        }
+        .prayer-home-left .prayer-home-time {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-top: 6px;
+        }
+        .prayer-home-remaining {
+            flex: 1;
+            text-align: center;
+        }
+        .prayer-home-remaining .label {
+            font-size: 0.95rem;
+            color: var(--text-secondary);
+            font-weight: 700;
+        }
+        .prayer-home-remaining .value {
+            margin-top: 6px;
+            font-size: 1.9rem;
+            font-weight: 900;
+            color: var(--text-primary);
+            letter-spacing: -0.5px;
+        }
+        .prayer-home-refresh {
+            width: 44px;
+            height: 44px;
+            border-radius: 14px;
+            border: 1px solid var(--border);
+            background: rgba(255,255,255,0.06);
+            color: var(--text-primary);
+            font-size: 1.2rem;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s ease;
+        }
+        .prayer-home-refresh:active {
+            transform: scale(0.97);
+        }
+        .prayer-home-grid {
+            display: grid;
+            /* Responsive: works on all screen sizes */
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-bottom: 14px;
+        }
+        .prayer-mini {
+            padding: 10px 10px;
+            border-radius: 14px;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid rgba(148,163,184,0.18);
+            text-align: center;
+        }
+        .prayer-mini .name {
+            font-weight: 800;
+            color: var(--text-primary);
+            font-size: 0.95rem;
+            margin-bottom: 6px;
+        }
+        .prayer-mini .time {
+            color: var(--text-secondary);
+            font-weight: 700;
+            font-size: 0.9rem;
+        }
+        .prayer-home-hijri {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            color: var(--text-secondary);
+            font-weight: 700;
+            font-size: 0.95rem;
+        }
+        .btn-link {
+            margin-left: auto;
+            background: transparent;
+            border: 1px solid rgba(148,163,184,0.25);
+            color: var(--text-primary);
+            padding: 8px 10px;
+            border-radius: 12px;
+            cursor: pointer;
+            font-weight: 800;
+            font-size: 0.85rem;
+        }
+
+        @media (max-width: 480px) {
+            .container {
+                padding: 16px;
+            }
+            
+            .header h1 {
+                font-size: 1.8rem;
+            }
+            
+            .card {
+                padding: 20px;
+            }
+            
+            .frequency-btn {
+                min-width: calc(50% - 4px);
+                font-size: 0.8rem;
+            }
+            
+            .qaza-summary {
+                grid-template-columns: repeat(5, 1fr);
+            }
+            
+            .prayer-actions {
+                grid-template-columns: 1fr;
+            }
+            
+            .back-btn {
+                top: 16px;
+                left: 16px;
+            }
+        }
+        
+        @media print {
+            .back-btn, .install-banner, .export-buttons, .btn, .calendar-icon {
+                display: none !important;
+            }
+        }
+    </style>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <!-- Profiles Screen -->
+        <div id="profilesScreen" class="screen active">
+            <div class="header">
+                <h1><span class="sqt-logo">SQT</span></h1>
+                <p class="subtitle">Track your prayers with ease</p>
+            </div>
+            
+            <div class="durood-section">
+                <h3>اَللّٰهُمَّ صَلِّ عَلٰى مُحَمَّدٍ وَّعَلٰٓى اٰلِ مُحَمَّدٍ</h3>
+                <p>Please recite Durood-e-Ibrahimi before continuing</p>
+            </div>
+            
+            <div id="profilesList" class="profile-list"></div>
+            
+            <button class="btn" onclick="showCreateProfile()">
+                ➕ Create New Profile
+            </button>
+            
+            <div class="footer-credit">
+                <p style="margin-bottom: 8px;">Developed by</p>
+                <p class="developer">Muhammad Waqar Hussain</p>
+                <p class="title">(SEO Consultant)</p>
+                <p style="margin-top: 12px; font-size: 0.85rem;">Remember me in your prayers</p>
+            </div>
+        </div>
+
+        <!-- Setup Screen 1: Start Age -->
+        <div id="setupScreen1" class="screen">
+            <div class="card">
+                <h2>Step 1: When did you start praying regularly?</h2>
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Age started praying:</span>
+                        <span class="slider-value" id="startAgeValue">15</span>
+                    </div>
+                    <input type="range" id="startAge" min="5" max="50" value="15" 
+                           oninput="document.getElementById('startAgeValue').textContent = this.value">
+                </div>
+                <button class="btn" onclick="nextStep(1)">Next →</button>
+            </div>
+        </div>
+
+        <!-- Setup Screen 2: Current Age -->
+        <div id="setupScreen2" class="screen">
+            <div class="card">
+                <h2>Step 2: How old are you now?</h2>
+                <div class="slider-group">
+                    <div class="slider-label">
+                        <span>Current age:</span>
+                        <span class="slider-value" id="currentAgeValue">25</span>
+                    </div>
+                    <input type="range" id="currentAge" min="5" max="100" value="25" 
+                           oninput="document.getElementById('currentAgeValue').textContent = this.value">
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="prevStep(2)">← Back</button>
+                    <button class="btn" onclick="nextStep(2)">Next →</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Setup Screen 3: Frequency -->
+        <div id="setupScreen3" class="screen">
+            <div class="card">
+                <h2>Step 3: How regularly did you pray?</h2>
+                <div id="frequencySelectors"></div>
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="prevStep(3)">← Back</button>
+                    <button class="btn" onclick="calculateQaza()">Calculate</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Results Screen -->
+        <div id="resultsScreen" class="screen">
+            <div class="card">
+                <h2>Estimated Missed Prayers</h2>
+                <p style="color: var(--text-secondary); margin-bottom: 20px;">
+                    From age <span id="ageRange"></span>
+                </p>
+                <div id="resultsGrid" class="result-grid"></div>
+                <button class="btn" onclick="finishSetup()">Finish & Go to Tracker</button>
+            </div>
+        </div>
+
+        <!-- Tracker Screen -->
+        <div id="trackerScreen" class="screen">
+            <div class="card prayer-home-card" id="prayerHomeCard">
+                <div class="prayer-home-top">
+                    <div class="prayer-home-left">
+                        <div class="prayer-home-name" id="homeCurrentPrayer">Dhuhr</div>
+                        <div class="prayer-home-time" id="homeCurrentTime">--:--</div>
+                    </div>
+                    <div class="prayer-home-remaining">
+                        <div class="label" id="homeRemainingLabel">Remaining Time</div>
+                        <div class="value" id="homeRemainingValue">--</div>
+                    </div>
+                    <button class="prayer-home-refresh" onclick="refreshHomePrayerCard()" aria-label="Refresh prayer times" title="Refresh">↻</button>
+                </div>
+                <div class="prayer-home-grid" id="homePrayerGrid"></div>
+                <div class="prayer-home-hijri">
+                    <span>📅</span>
+                    <span id="homeHijriDate"></span>
+                    <button class="btn-link" onclick="openHijriAdjust()">Adjust</button>
+                </div>
+            </div>
+            <div class="tracker-header">
+                <div class="tracker-date">
+                    <span id="currentDate"></span>
+                    <span class="calendar-icon" onclick="showCalendar()" aria-label="Open calendar" title="Open calendar">
+                        <span class="cal-icon" id="calIcon">
+                            <span class="cal-month" id="calIconMonth">---</span>
+                            <span class="cal-day" id="calIconDay">--</span>
+                        </span>
+                    </span>
+                </div>
+                <div class="qaza-summary" id="qazaSummary"></div>
+            </div>
+            
+            <div id="prayerTrackerList" class="prayer-tracker-list"></div>
+            
+            <button class="btn" onclick="showReports()" style="margin-top: 20px;">
+                📊 View Reports
+            </button>
+            
+            <div class="export-buttons">
+                <button class="btn-export" onclick="exportBackup()">💾 Backup</button>
+                <button class="btn-export" onclick="document.getElementById('importFile').click()">
+                    📂 Import Backup
+                </button>
+            </div>
+            <input type="file" id="importFile" accept=".json" style="display: none;" onchange="importBackup(event)">
+        </div>
+
+        <!-- Reports Screen -->
+        <div id="reportsScreen" class="screen">
+            <div class="card">
+                <h2>Prayer Reports</h2>
+                
+                <div class="report-selector">
+                    <button class="report-btn active" onclick="selectReportType('daily')">Daily</button>
+                    <button class="report-btn" onclick="selectReportType('monthly')">Monthly</button>
+                    <button class="report-btn" onclick="selectReportType('yearly')">Yearly</button>
+                    <button class="report-btn" onclick="selectReportType('total')">Total</button>
+                </div>
+                
+                <div id="reportContent"></div>
+                
+                <div class="btn-row" style="margin-top: 24px;">
+                    <button class="btn" onclick="exportReportPDF()">📄 Download PDF Report</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Edit Profile Screen -->
+        <div id="editProfileScreen" class="screen">
+            <div class="card">
+                <h2>Edit Profile</h2>
+                <div class="input-group">
+                    <label>Name</label>
+                    <input type="text" id="editName" placeholder="Your name">
+                </div>
+                <div class="input-group">
+                    <label>Date of Birth</label>
+                    <input type="date" id="editDOB">
+                </div>
+                <div class="input-group">
+                    <label>City</label>
+                    <input type="text" id="editCity" placeholder="City">
+                </div>
+                <div class="input-group">
+                    <label>Country</label>
+                    <input type="text" id="editCountry" placeholder="Country">
+                </div>
+                <div class="input-group">
+                    <label>Calculation Method</label>
+                    <select id="editMethod">
+                        <option value="MWL">Muslim World League</option>
+                        <option value="ISNA">Islamic Society of North America</option>
+                        <option value="Egypt">Egyptian General Authority</option>
+                        <option value="Makkah">Umm Al-Qura University, Makkah</option>
+                        <option value="Karachi">University of Islamic Sciences, Karachi</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Fiqh</label>
+                    <select id="editFiqh">
+                        <option value="Hanafi">Hanafi</option>
+                        <option value="Shafi">Shafi</option>
+                        <option value="Maliki">Maliki</option>
+                        <option value="Hanbali">Hanbali</option>
+                    </select>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="cancelEdit()">Cancel</button>
+                    <button class="btn" onclick="saveEdit()">Save Changes</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Create Profile Screen -->
+        <div id="createProfileScreen" class="screen">
+            <div class="card">
+                <h2>Create New Profile</h2>
+                <div class="input-group">
+                    <label>Name</label>
+                    <input type="text" id="newName" placeholder="Your name">
+                </div>
+                <div class="input-group">
+                    <label>Date of Birth</label>
+                    <input type="date" id="newDOB">
+                </div>
+                <div class="input-group">
+                    <label>City</label>
+                    <input type="text" id="newCity" placeholder="City">
+                </div>
+                <div class="input-group">
+                    <label>Country</label>
+                    <input type="text" id="newCountry" placeholder="Country">
+                </div>
+                <div class="input-group">
+                    <label>Calculation Method</label>
+                    <select id="newMethod">
+                        <option value="MWL">Muslim World League</option>
+                        <option value="ISNA">Islamic Society of North America</option>
+                        <option value="Egypt">Egyptian General Authority</option>
+                        <option value="Makkah">Umm Al-Qura University, Makkah</option>
+                        <option value="Karachi">University of Islamic Sciences, Karachi</option>
+                    </select>
+                </div>
+                <div class="input-group">
+                    <label>Fiqh</label>
+                    <select id="newFiqh">
+                        <option value="Hanafi">Hanafi</option>
+                        <option value="Shafi">Shafi</option>
+                        <option value="Maliki">Maliki</option>
+                        <option value="Hanbali">Hanbali</option>
+                    </select>
+                </div>
+                <div class="btn-row">
+                    <button class="btn btn-secondary" onclick="cancelCreate()">Cancel</button>
+                    <button class="btn" onclick="saveNewProfile()">Continue to Setup</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Calendar Modal -->
+    <div id="calendarModal" class="modal">
+        <div class="modal-content">
+            <h2>Select Date</h2>
+            <div id="calendarContainer"></div>
+            <button class="btn btn-secondary" onclick="closeCalendar()" style="margin-top: 20px;">Close</button>
+        </div>
+    </div>
+
+
+    <!-- Hijri Date Adjustment Modal -->
+    <div id="hijriModal" class="modal">
+        <div class="modal-content">
+            <h2>Hijri Date Adjustment</h2>
+            <p style="color: var(--text-secondary); margin-top: 8px; margin-bottom: 16px; font-size: 0.95rem;">
+                If your Islamic date is 1 day ahead or behind, adjust it here.
+            </p>
+
+            <div class="input-group" style="margin-bottom: 10px;">
+                <label>Adjust (days)</label>
+                <input type="range" id="hijriOffsetRange" min="-2" max="2" step="1" value="0" oninput="updateHijriOffsetPreview()">
+                <div id="hijriOffsetValue" style="margin-top: 10px; font-weight: 800; color: var(--text-primary);">0</div>
+                <div id="hijriOffsetPreview" style="margin-top: 6px; color: var(--text-secondary); font-size: 0.9rem;"></div>
+            </div>
+
+            <div class="btn-row" style="margin-top: 18px;">
+                <button class="btn btn-secondary" onclick="closeHijriAdjust()">Cancel</button>
+                <button class="btn" onclick="saveHijriAdjust()">Save</button>
+            </div>
+        </div>
+    </div>
+
+
+    <!-- Back Button -->
+    <button class="back-btn" id="backBtn" onclick="goBack()">←</button>
+
+    <!-- Install Banner -->
+    <div class="install-banner" id="installBanner">
+        <div class="message">Install Qaza Tracker on your device!</div>
+        <button class="btn-install" onclick="installApp()">Install</button>
+        <button class="btn-close" onclick="closeInstallBanner()">✕</button>
+    </div>
+
+    <script>
+        // Global state
+        let currentProfile = null;
+        let profiles = [];
+        let prayerLogs = {};
+        let currentViewingDate = null; // Track which date we're viewing
+        let setupData = {
+            startAge: 15,
+            currentAge: 25,
+            frequencies: {
+                Fajr: 'sometimes',
+                Dhuhr: 'sometimes',
+                Asr: 'sometimes',
+                Maghrib: 'sometimes',
+                Isha: 'sometimes'
+            }
+        };
+        let currentReportType = 'daily';
+        let deferredPrompt = null;
+
+        const prayers = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
+        const frequencyOptions = [
+            { value: 'always', label: 'Always', multiplier: 0 },
+            { value: 'mostly', label: 'Mostly', multiplier: 0.2 },
+            { value: 'sometimes', label: 'Sometimes', multiplier: 0.5 },
+            { value: 'rarely', label: 'Rarely', multiplier: 0.8 },
+            { value: 'never', label: 'Never', multiplier: 1.0 }
+        ];
+
+        // Prayer times (simplified - in real app use actual calculation API)
+        const prayerTimes = {
+            Fajr: { start: '5:30 AM', end: '6:45 AM' },
+            Dhuhr: { start: '12:30 PM', end: '3:30 PM' },
+            Asr: { start: '3:45 PM', end: '5:45 PM' },
+            Maghrib: { start: '6:15 PM', end: '7:30 PM' },
+            Isha: { start: '7:45 PM', end: '11:00 PM' }
+        };
+
+        
+        // ----- Home Prayer Times Card (Dashboard) -----
+        function parseTimeOnDate(timeStr, baseDate) {
+            // timeStr like "5:30 AM"
+            const [time, modifier] = timeStr.split(' ');
+            let [hours, minutes] = time.split(':').map(n => parseInt(n, 10));
+
+            if (modifier === 'PM' && hours !== 12) hours += 12;
+            if (modifier === 'AM' && hours === 12) hours = 0;
+
+            const d = new Date(baseDate);
+            d.setHours(hours, minutes || 0, 0, 0);
+            return d;
+        }
+
+        function formatDuration(ms) {
+            const totalMinutes = Math.max(0, Math.round(ms / 60000));
+            const h = Math.floor(totalMinutes / 60);
+            const m = totalMinutes % 60;
+
+            if (h > 0) {
+                return `${h}h ${m}m`;
+            }
+            return `${totalMinutes} mins`;
+        }
+
+        function getHijriOffsetDays() {
+            const profile = profiles[currentProfile];
+            return profile && typeof profile.hijriOffsetDays === 'number' ? profile.hijriOffsetDays : 0;
+        }
+
+        function formatHijriDate(dateObj) {
+            try {
+                return new Intl.DateTimeFormat('en-u-ca-islamic', {
+                    day: 'numeric',
+                    month: 'long',
+                    year: 'numeric'
+                }).format(dateObj);
+            } catch (e) {
+                return '';
+            }
+        }
+
+        function updatePrayerHomeCard() {
+            const card = document.getElementById('prayerHomeCard');
+            if (!card || currentProfile === null || !profiles[currentProfile]) return;
+
+            const now = new Date();
+            const todayBase = new Date();
+            todayBase.setHours(12, 0, 0, 0);
+
+            // Current clock
+            const timeEl = document.getElementById('homeCurrentTime');
+            if (timeEl) {
+                timeEl.textContent = now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit' });
+            }
+
+            // Build today's schedule
+            const schedule = prayers.map(p => {
+                const start = parseTimeOnDate(prayerTimes[p].start, todayBase);
+                const end = parseTimeOnDate(prayerTimes[p].end, todayBase);
+                return { prayer: p, start, end };
+            });
+
+            let current = schedule.find(s => now >= s.start && now <= s.end);
+            let label = '';
+            let remainingMs = 0;
+            let showPrayer = '';
+
+            if (current) {
+                showPrayer = current.prayer;
+                label = `Remaining Time of ${current.prayer}`;
+                remainingMs = current.end - now;
+            } else {
+                // Next prayer
+                const next = schedule.find(s => now < s.start);
+                if (next) {
+                    showPrayer = next.prayer;
+                    label = `Time Until ${next.prayer}`;
+                    remainingMs = next.start - now;
+                } else {
+                    // After Isha -> next is tomorrow Fajr
+                    showPrayer = 'Fajr';
+                    label = 'Time Until Fajr';
+                    const tomorrow = new Date(todayBase);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const fajrTomorrow = parseTimeOnDate(prayerTimes.Fajr.start, tomorrow);
+                    remainingMs = fajrTomorrow - now;
+                }
+            }
+
+            const prayerEl = document.getElementById('homeCurrentPrayer');
+            if (prayerEl) prayerEl.textContent = showPrayer;
+
+            const labelEl = document.getElementById('homeRemainingLabel');
+            if (labelEl) labelEl.textContent = label;
+
+            const valueEl = document.getElementById('homeRemainingValue');
+            if (valueEl) valueEl.textContent = formatDuration(remainingMs);
+
+            // Mini grid: show other 4 prayers (like the reference UI)
+            const gridEl = document.getElementById('homePrayerGrid');
+            if (gridEl) {
+                const others = prayers.filter(p => p !== showPrayer);
+                gridEl.innerHTML = others.slice(0, 4).map(p => `
+                    <div class="prayer-mini">
+                        <div class="name">${p}</div>
+                        <div class="time">${prayerTimes[p].start}</div>
+                    </div>
+                `).join('');
+            }
+
+            // Hijri date
+            const offset = getHijriOffsetDays();
+            const hijriDateObj = new Date();
+            hijriDateObj.setDate(hijriDateObj.getDate() + offset);
+
+            const hijriEl = document.getElementById('homeHijriDate');
+            if (hijriEl) {
+                const txt = formatHijriDate(hijriDateObj);
+                hijriEl.textContent = txt || '';
+            }
+        }
+
+        function refreshHomePrayerCard() {
+            updatePrayerHomeCard();
+        }
+
+        // Hijri adjustment modal
+        function openHijriAdjust() {
+            if (currentProfile === null || !profiles[currentProfile]) return;
+
+            const modal = document.getElementById('hijriModal');
+            const range = document.getElementById('hijriOffsetRange');
+            if (!modal || !range) return;
+
+            range.value = String(getHijriOffsetDays());
+            updateHijriOffsetPreview();
+            modal.classList.add('active');
+        }
+
+        function closeHijriAdjust() {
+            const modal = document.getElementById('hijriModal');
+            if (modal) modal.classList.remove('active');
+        }
+
+        function updateHijriOffsetPreview() {
+            const range = document.getElementById('hijriOffsetRange');
+            const valueEl = document.getElementById('hijriOffsetValue');
+            const previewEl = document.getElementById('hijriOffsetPreview');
+            if (!range) return;
+
+            const offset = parseInt(range.value, 10) || 0;
+            if (valueEl) valueEl.textContent = `${offset}`;
+
+            const base = new Date();
+            const adjusted = new Date();
+            adjusted.setDate(adjusted.getDate() + offset);
+
+            const baseTxt = formatHijriDate(base);
+            const adjTxt = formatHijriDate(adjusted);
+
+            if (previewEl) {
+                previewEl.textContent = baseTxt && adjTxt ? `Today: ${baseTxt} → Adjusted: ${adjTxt}` : '';
+            }
+        }
+
+        function saveHijriAdjust() {
+            if (currentProfile === null || !profiles[currentProfile]) return;
+
+            const range = document.getElementById('hijriOffsetRange');
+            const offset = range ? (parseInt(range.value, 10) || 0) : 0;
+
+            profiles[currentProfile].hijriOffsetDays = offset;
+            saveData();
+            closeHijriAdjust();
+            updatePrayerHomeCard();
+        }
+
+
+        // Initialize
+        function init() {
+            loadData();
+            restoreState();
+            renderProfiles();
+            updateBackButton();
+            setupManifest();
+            checkInstallPrompt();
+            updateCalendarIcon(currentViewingDate);
+            
+            // Auto-check missed prayers
+            setInterval(checkMissedPrayers, 60000); // Check every minute
+
+            // Update home prayer card timer (remaining time + clock)
+            setInterval(() => {
+                if (document.getElementById('trackerScreen')?.classList.contains('active')) {
+                    updatePrayerHomeCard();
+                }
+            }, 30000);
+        }
+        
+        function saveState() {
+            const state = {
+                currentScreen: document.querySelector('.screen.active')?.id || 'profilesScreen',
+                currentProfile: currentProfile,
+                currentViewingDate: currentViewingDate,
+                currentReportType: currentReportType
+            };
+            localStorage.setItem('qazaTrackerState', JSON.stringify(state));
+        }
+        
+        function restoreState() {
+            const savedState = localStorage.getItem('qazaTrackerState');
+            if (savedState) {
+                try {
+                    const state = JSON.parse(savedState);
+                    currentProfile = state.currentProfile;
+                    currentViewingDate = state.currentViewingDate;
+                    currentReportType = state.currentReportType || 'daily';
+                    
+                    if (state.currentScreen && state.currentProfile !== null) {
+                        showScreen(state.currentScreen);
+                    }
+                } catch (e) {
+                    console.error('Error restoring state:', e);
+                }
+            }
+        }
+
+        // PWA Manifest
+        function setupManifest() {
+            const manifest = {
+                name: "Qaza Tracker - Islamic Prayer Manager",
+                short_name: "Qaza Tracker",
+                start_url: window.location.href,
+                display: "standalone",
+                background_color: "#0f172a",
+                theme_color: "#0f172a",
+                orientation: "portrait",
+                icons: [
+                    {
+                        src: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIxOTIiIGhlaWdodD0iMTkyIj48cmVjdCB3aWR0aD0iMTkyIiBoZWlnaHQ9IjE5MiIgZmlsbD0iIzBmMTcyYSIvPjxwYXRoIGQ9Ik05NiAzMmg5NiB2MTI4IGgtOTYiIGZpbGw9IiMxMGI5ODEiLz48dGV4dCB4PSI5NiIgeT0iMTIwIiBmaWxsPSIjZjFmNWY5IiBmb250LWZhbWlseT0iQXJpYWwiIGZvbnQtc2l6ZT0iNzIiIHRleHQtYW5jaG9yPSJtaWRkbGUiPtmCPC90ZXh0Pjwvc3ZnPg==",
+                        type: "image/svg+xml",
+                        sizes: "192x192"
+                    },
+                    {
+                        src: "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSI1MTIiIGhlaWdodD0iNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0iIzBmMTcyYSIvPjxwYXRoIGQ9Ik0yNTYgODBoMjU2IHYzNTIgaC0yNTYiIGZpbGw9IiMxMGI5ODEiLz48dGV4dCB4PSIyNTYiIHk9IjM1MCIgZmlsbD0iI2YxZjVmOSIgZm9udC1mYW1pbHk9IkFyaWFsIiBmb250LXNpemU9IjI0MCIgdGV4dC1hbmNob3I9Im1pZGRsZSI+2YI8L3RleHQ+PC9zdmc+",
+                        type: "image/svg+xml",
+                        sizes: "512x512"
+                    }
+                ]
+            };
+            
+            const stringManifest = JSON.stringify(manifest);
+            const blob = new Blob([stringManifest], {type: 'application/json'});
+            const manifestURL = URL.createObjectURL(blob);
+            document.getElementById('manifestLink').setAttribute('href', manifestURL);
+        }
+
+        // Install PWA
+        function checkInstallPrompt() {
+            window.addEventListener('beforeinstallprompt', (e) => {
+                e.preventDefault();
+                deferredPrompt = e;
+                document.getElementById('installBanner').classList.add('visible');
+            });
+        }
+
+        function installApp() {
+            if (deferredPrompt) {
+                deferredPrompt.prompt();
+                deferredPrompt.userChoice.then((choiceResult) => {
+                    if (choiceResult.outcome === 'accepted') {
+                        console.log('App installed');
+                    }
+                    deferredPrompt = null;
+                    closeInstallBanner();
+                });
+            }
+        }
+
+        function closeInstallBanner() {
+            document.getElementById('installBanner').classList.remove('visible');
+        }
+
+        // Navigation
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+            updateBackButton();
+            saveState();
+            
+            if (screenId === 'trackerScreen') {
+                updateTracker();
+            } else if (screenId === 'reportsScreen') {
+                generateReport();
+            }
+        }
+
+        function updateBackButton() {
+            const backBtn = document.getElementById('backBtn');
+            const activeScreen = document.querySelector('.screen.active');
+            if (activeScreen && activeScreen.id !== 'profilesScreen') {
+                backBtn.classList.add('visible');
+            } else {
+                backBtn.classList.remove('visible');
+            }
+        }
+
+        function goBack() {
+            const activeScreen = document.querySelector('.screen.active');
+            if (!activeScreen) return;
+            
+            const screenId = activeScreen.id;
+            
+            // Navigation logic based on current screen
+            if (screenId === 'trackerScreen' || screenId === 'editProfileScreen' || screenId === 'createProfileScreen') {
+                showScreen('profilesScreen');
+            } else if (screenId === 'setupScreen1') {
+                showScreen('profilesScreen');
+            } else if (screenId === 'setupScreen2') {
+                showScreen('setupScreen1');
+            } else if (screenId === 'setupScreen3') {
+                showScreen('setupScreen2');
+            } else if (screenId === 'resultsScreen') {
+                showScreen('setupScreen3');
+            } else if (screenId === 'reportsScreen') {
+                showScreen('trackerScreen');
+            } else {
+                showScreen('profilesScreen');
+            }
+        }
+
+        // Profile Management
+        function loadData() {
+            const saved = localStorage.getItem('qazaTrackerData');
+            if (saved) {
+                const data = JSON.parse(saved);
+                profiles = data.profiles || [];
+                prayerLogs = data.prayerLogs || {};
+            }
+
+            // Backward compatibility for older saves
+            profiles.forEach(p => {
+                if (typeof p.hijriOffsetDays !== 'number') p.hijriOffsetDays = 0;
+                if (!p.createdAt) p.createdAt = new Date().toISOString();
+            });
+        }
+
+        function saveData() {
+            localStorage.setItem('qazaTrackerData', JSON.stringify({
+                profiles,
+                prayerLogs,
+                version: '2.0'
+            }));
+        }
+
+        function renderProfiles() {
+            const container = document.getElementById('profilesList');
+            if (profiles.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 40px;">No profiles yet. Create one to get started!</p>';
+                return;
+            }
+
+            container.innerHTML = profiles.map((profile, index) => `
+                <div class="profile-card">
+                    <h3>${profile.name}</h3>
+                    <p>${profile.city}, ${profile.country}</p>
+                    ${profile.dob ? `<p style="font-size: 0.85rem;">DOB: ${new Date(profile.dob).toLocaleDateString()}</p>` : ''}
+                    <p style="font-size: 0.85rem;">Method: ${profile.method} | Fiqh: ${profile.fiqh}</p>
+                    <div class="profile-actions">
+                        <button class="btn-open" onclick="openProfile(${index})">Open</button>
+                        <button class="btn-edit" onclick="editProfile(${index})">Edit</button>
+                        <button class="btn-delete" onclick="deleteProfile(${index})">Delete</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function showCreateProfile() {
+            showScreen('createProfileScreen');
+        }
+
+        function saveNewProfile() {
+            const name = document.getElementById('newName').value.trim();
+            const dob = document.getElementById('newDOB').value;
+            const city = document.getElementById('newCity').value.trim();
+            const country = document.getElementById('newCountry').value.trim();
+            const method = document.getElementById('newMethod').value;
+            const fiqh = document.getElementById('newFiqh').value;
+
+            if (!name || !city || !country) {
+                alert('Please fill all required fields');
+                return;
+            }
+
+            const profileId = Date.now().toString();
+            const newProfile = {
+                id: profileId,
+                name,
+                dob,
+                city,
+                country,
+                method,
+                fiqh,
+                qazaCount: { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 },
+                hijriOffsetDays: 0,
+                createdAt: new Date().toISOString()
+            };
+
+            profiles.push(newProfile);
+            currentProfile = profiles.length - 1;
+            saveData();
+
+            // Clear form
+            document.getElementById('newName').value = '';
+            document.getElementById('newDOB').value = '';
+            document.getElementById('newCity').value = '';
+            document.getElementById('newCountry').value = '';
+
+            // Start setup
+            showScreen('setupScreen1');
+            createFrequencySelectors();
+        }
+
+        function cancelCreate() {
+            document.getElementById('newName').value = '';
+            document.getElementById('newDOB').value = '';
+            document.getElementById('newCity').value = '';
+            document.getElementById('newCountry').value = '';
+            goBack();
+        }
+
+        function openProfile(index) {
+            currentProfile = index;
+            currentViewingDate = null; // Reset to today
+            saveState();
+            showScreen('trackerScreen');
+        }
+
+        function editProfile(index) {
+            currentProfile = index;
+            const profile = profiles[index];
+            
+            document.getElementById('editName').value = profile.name;
+            document.getElementById('editDOB').value = profile.dob || '';
+            document.getElementById('editCity').value = profile.city;
+            document.getElementById('editCountry').value = profile.country;
+            document.getElementById('editMethod').value = profile.method;
+            document.getElementById('editFiqh').value = profile.fiqh;
+            
+            showScreen('editProfileScreen');
+        }
+
+        function saveEdit() {
+            const profile = profiles[currentProfile];
+            profile.name = document.getElementById('editName').value.trim();
+            profile.dob = document.getElementById('editDOB').value;
+            profile.city = document.getElementById('editCity').value.trim();
+            profile.country = document.getElementById('editCountry').value.trim();
+            profile.method = document.getElementById('editMethod').value;
+            profile.fiqh = document.getElementById('editFiqh').value;
+            
+            saveData();
+            renderProfiles();
+            showScreen('profilesScreen');
+        }
+
+        function cancelEdit() {
+            goBack();
+        }
+
+        function deleteProfile(index) {
+            if (confirm('Are you sure you want to delete this profile? This cannot be undone.')) {
+                const profileId = profiles[index].id;
+                profiles.splice(index, 1);
+                
+                if (prayerLogs[profileId]) {
+                    delete prayerLogs[profileId];
+                }
+                
+                saveData();
+                renderProfiles();
+            }
+        }
+
+        // Setup Flow
+        function nextStep(step) {
+            if (step === 1) {
+                setupData.startAge = parseInt(document.getElementById('startAge').value);
+                showScreen('setupScreen2');
+            } else if (step === 2) {
+                setupData.currentAge = parseInt(document.getElementById('currentAge').value);
+                if (setupData.currentAge < setupData.startAge) {
+                    alert('Current age must be greater than or equal to start age');
+                    return;
+                }
+                createFrequencySelectors();
+                showScreen('setupScreen3');
+            }
+        }
+
+        function prevStep(step) {
+            if (step === 2) {
+                showScreen('setupScreen1');
+            } else if (step === 3) {
+                showScreen('setupScreen2');
+            }
+        }
+
+        function createFrequencySelectors() {
+            const container = document.getElementById('frequencySelectors');
+            container.innerHTML = prayers.map(prayer => `
+                <div class="prayer-select">
+                    <label>${prayer}</label>
+                    <div class="frequency-grid">
+                        ${frequencyOptions.map(opt => `
+                            <button class="frequency-btn ${setupData.frequencies[prayer] === opt.value ? 'active' : ''}" 
+                                    onclick="selectFrequency('${prayer}', '${opt.value}')">
+                                ${opt.label}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function selectFrequency(prayer, value) {
+            setupData.frequencies[prayer] = value;
+            createFrequencySelectors();
+        }
+
+        function calculateQaza() {
+            const years = setupData.currentAge - setupData.startAge;
+            const days = Math.floor(years * 365.25);
+            
+            const profile = profiles[currentProfile];
+            prayers.forEach(prayer => {
+                const freq = setupData.frequencies[prayer];
+                const multiplier = frequencyOptions.find(opt => opt.value === freq).multiplier;
+                profile.qazaCount[prayer] = Math.floor(days * multiplier);
+            });
+            
+            saveData();
+            showResults();
+        }
+
+        function showResults() {
+            const profile = profiles[currentProfile];
+            document.getElementById('ageRange').textContent = 
+                `${setupData.startAge} to ${setupData.currentAge}`;
+            
+            const resultsGrid = document.getElementById('resultsGrid');
+            resultsGrid.innerHTML = prayers.map(prayer => `
+                <div class="result-item">
+                    <span class="prayer-name">${prayer}</span>
+                    <div class="prayer-count">
+                        <span>${profile.qazaCount[prayer]}</span>
+                        <div class="plus-minus-btns">
+                            <button class="plus-minus-btn" onclick="adjustQaza('${prayer}', -1)">−</button>
+                            <button class="plus-minus-btn" onclick="adjustQaza('${prayer}', 1)">+</button>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+            
+            showScreen('resultsScreen');
+        }
+
+        function adjustQaza(prayer, delta) {
+            const profile = profiles[currentProfile];
+            const profileId = profile.id;
+            
+            if (delta < 0 && profile.qazaCount[prayer] > 0) {
+                // Minus: decrease qaza and add to qaza done logs
+                profile.qazaCount[prayer]--;
+                
+                // Find the start date based on profile setup
+                const startDate = getProfileStartDate();
+                
+                // Add qaza done entry
+                if (!prayerLogs[profileId]) prayerLogs[profileId] = {};
+                if (!prayerLogs[profileId][startDate]) prayerLogs[profileId][startDate] = {};
+                
+                const currentStatus = prayerLogs[profileId][startDate][prayer] || 'none';
+                if (currentStatus === 'done') {
+                    prayerLogs[profileId][startDate][prayer] = 'both';
+                } else {
+                    prayerLogs[profileId][startDate][prayer] = 'qaza';
+                }
+            } else if (delta > 0) {
+                // Plus: increase qaza count
+                profile.qazaCount[prayer]++;
+            }
+            
+            saveData();
+            showResults();
+        }
+
+        function getProfileStartDate() {
+            const profile = profiles[currentProfile];
+            if (profile.dob) {
+                const birthDate = new Date(profile.dob);
+                birthDate.setFullYear(birthDate.getFullYear() + setupData.startAge);
+                return birthDate.toISOString().split('T')[0];
+            }
+            return new Date().toISOString().split('T')[0];
+        }
+
+        function finishSetup() {
+            currentViewingDate = null; // Reset to today
+            renderProfiles(); // Update profiles list
+            showScreen('trackerScreen');
+        }
+
+        // Tracker
+        function updateTracker() {
+            updateCurrentDate();
+            updateQazaSummary();
+            updatePrayerList();
+            updatePrayerHomeCard();
+        }
+
+        function updateCurrentDate() {
+            const dateEl = document.getElementById('currentDate');
+            if (currentViewingDate) {
+                // Use noon to avoid timezone conversion issues
+                const viewDate = new Date(currentViewingDate + 'T12:00:00');
+                const day = String(viewDate.getDate()).padStart(2, '0');
+                const month = String(viewDate.getMonth() + 1).padStart(2, '0');
+                const year = viewDate.getFullYear();
+                const weekday = viewDate.toLocaleDateString('en-US', { weekday: 'long' });
+                dateEl.textContent = `${weekday}, ${day}/${month}/${year}`;
+                updateCalendarIcon(currentViewingDate);
+            } else {
+                const today = new Date();
+                const day = String(today.getDate()).padStart(2, '0');
+                const month = String(today.getMonth() + 1).padStart(2, '0');
+                const year = today.getFullYear();
+                const weekday = today.toLocaleDateString('en-US', { weekday: 'long' });
+                dateEl.textContent = `${weekday}, ${day}/${month}/${year}`;
+                updateCalendarIcon(null);
+            }
+        }
+
+        function updateQazaSummary() {
+            const profile = profiles[currentProfile];
+            const summaryEl = document.getElementById('qazaSummary');
+            
+            summaryEl.innerHTML = prayers.map(prayer => `
+                <div class="qaza-item">
+                    <div class="name">${prayer}</div>
+                    <div class="count">${profile.qazaCount[prayer]}</div>
+                    <div class="controls">
+                        <button class="qaza-control-btn" onclick="adjustQazaFromTracker('${prayer}', -1)">−</button>
+                        <button class="qaza-control-btn" onclick="adjustQazaFromTracker('${prayer}', 1)">+</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        function adjustQazaFromTracker(prayer, delta) {
+            const profile = profiles[currentProfile];
+            const profileId = profile.id;
+            
+            if (delta < 0 && profile.qazaCount[prayer] > 0) {
+                profile.qazaCount[prayer]--;
+                
+                const startDate = getProfileStartDate();
+                if (!prayerLogs[profileId]) prayerLogs[profileId] = {};
+                if (!prayerLogs[profileId][startDate]) prayerLogs[profileId][startDate] = {};
+                
+                const currentStatus = prayerLogs[profileId][startDate][prayer] || 'none';
+                if (currentStatus === 'done') {
+                    prayerLogs[profileId][startDate][prayer] = 'both';
+                } else {
+                    prayerLogs[profileId][startDate][prayer] = 'qaza';
+                }
+            } else if (delta > 0) {
+                profile.qazaCount[prayer]++;
+            }
+            
+            saveData();
+            updateTracker();
+        }
+
+        function updatePrayerList() {
+            const viewDate = currentViewingDate || new Date().toISOString().split('T')[0];
+            const profileId = profiles[currentProfile].id;
+            
+            if (!prayerLogs[profileId]) {
+                prayerLogs[profileId] = {};
+            }
+            if (!prayerLogs[profileId][viewDate]) {
+                prayerLogs[profileId][viewDate] = {};
+            }
+            
+            const dayLogs = prayerLogs[profileId][viewDate];
+            const listEl = document.getElementById('prayerTrackerList');
+            const now = new Date();
+            const isToday = viewDate === now.toISOString().split('T')[0];
+            
+            listEl.innerHTML = prayers.map(prayer => {
+                const status = dayLogs[prayer] || 'none';
+                const times = prayerTimes[prayer];
+                const endTime = parseTime(times.end);
+                const isPastTime = isToday && now > endTime;
+                const isAutoMissed = isPastTime && status === 'none';
+                
+                // Auto-mark as missed if time passed and no action taken
+                if (isAutoMissed) {
+                    dayLogs[prayer] = 'missed';
+                    profiles[currentProfile].qazaCount[prayer]++;
+                    saveData();
+                }
+                
+                const finalStatus = dayLogs[prayer] || 'none';
+                const missedDisabled = finalStatus === 'missed' && isPastTime;
+                
+                return `
+                    <div class="prayer-tracker-item">
+                        <div class="prayer-tracker-header">
+                            <span class="prayer-tracker-name">${prayer}</span>
+                            <span class="prayer-time">${times.start} - ${times.end}</span>
+                        </div>
+                        <div class="prayer-actions">
+                            <button class="prayer-action-btn ${finalStatus === 'done' || finalStatus === 'both' ? 'active' : ''}" 
+                                    onclick="markPrayer('${prayer}', 'done')">
+                                ✓ Done
+                            </button>
+                            <button class="prayer-action-btn ${finalStatus === 'missed' ? 'active' : ''}" 
+                                    ${missedDisabled ? 'disabled' : ''}
+                                    onclick="markPrayer('${prayer}', 'missed')">
+                                ✗ Missed
+                            </button>
+                            <button class="prayer-action-btn ${finalStatus === 'qaza' || finalStatus === 'both' ? 'active' : ''}" 
+                                    onclick="markPrayer('${prayer}', 'qaza')">
+                                🕌 Qaza Done
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function markPrayer(prayer, action) {
+            const viewDate = currentViewingDate || new Date().toISOString().split('T')[0];
+            const profileId = profiles[currentProfile].id;
+            const dayLogs = prayerLogs[profileId][viewDate];
+            const currentStatus = dayLogs[prayer] || 'none';
+            
+            if (action === 'done') {
+                if (currentStatus === 'done') {
+                    dayLogs[prayer] = 'none';
+                } else if (currentStatus === 'both') {
+                    // Unselecting done but keeping qaza
+                    dayLogs[prayer] = 'qaza';
+                } else if (currentStatus === 'qaza') {
+                    // Both done and qaza
+                    dayLogs[prayer] = 'both';
+                } else if (currentStatus === 'missed') {
+                    // Changing from missed to done - remove from qaza count
+                    dayLogs[prayer] = 'done';
+                    if (profiles[currentProfile].qazaCount[prayer] > 0) {
+                        profiles[currentProfile].qazaCount[prayer]--;
+                    }
+                } else {
+                    // Just marking as done
+                    dayLogs[prayer] = 'done';
+                }
+            } else if (action === 'missed') {
+                // User manually marking as missed (only if not auto-missed)
+                if (currentStatus !== 'missed') {
+                    dayLogs[prayer] = 'missed';
+                    profiles[currentProfile].qazaCount[prayer]++;
+                }
+            } else if (action === 'qaza') {
+                if (currentStatus === 'qaza') {
+                    // Unselecting qaza - re-add to count
+                    dayLogs[prayer] = 'none';
+                    profiles[currentProfile].qazaCount[prayer]++;
+                } else if (currentStatus === 'both') {
+                    // Unselecting qaza but keeping done
+                    dayLogs[prayer] = 'done';
+                    profiles[currentProfile].qazaCount[prayer]++;
+                } else if (currentStatus === 'done') {
+                    // Both done and qaza
+                    dayLogs[prayer] = 'both';
+                    if (profiles[currentProfile].qazaCount[prayer] > 0) {
+                        profiles[currentProfile].qazaCount[prayer]--;
+                    }
+                } else {
+                    // Just marking qaza done
+                    dayLogs[prayer] = 'qaza';
+                    if (profiles[currentProfile].qazaCount[prayer] > 0) {
+                        profiles[currentProfile].qazaCount[prayer]--;
+                    }
+                }
+            }
+            
+            saveData();
+            updateTracker();
+        }
+
+        // Auto-check missed prayers
+        function checkMissedPrayers() {
+            if (currentProfile === null) return;
+            
+            const now = new Date();
+            const today = now.toISOString().split('T')[0];
+            const profileId = profiles[currentProfile].id;
+            
+            if (!prayerLogs[profileId]) prayerLogs[profileId] = {};
+            if (!prayerLogs[profileId][today]) prayerLogs[profileId][today] = {};
+            
+            const todayLogs = prayerLogs[profileId][today];
+            
+            prayers.forEach(prayer => {
+                const times = prayerTimes[prayer];
+                const endTime = parseTime(times.end);
+                const currentStatus = todayLogs[prayer] || 'none';
+                
+                if (now > endTime && currentStatus === 'none') {
+                    // Time passed and no action taken
+                    todayLogs[prayer] = 'missed';
+                    profiles[currentProfile].qazaCount[prayer]++;
+                }
+            });
+            
+            saveData();
+            if (document.querySelector('.screen.active')?.id === 'trackerScreen') {
+                updateTracker();
+            }
+        }
+
+        function parseTime(timeStr) {
+            const [time, period] = timeStr.split(' ');
+            let [hours, minutes] = time.split(':').map(Number);
+            
+            if (period === 'PM' && hours !== 12) hours += 12;
+            if (period === 'AM' && hours === 12) hours = 0;
+            
+            const date = new Date();
+            date.setHours(hours, minutes, 0, 0);
+            return date;
+        }
+
+        // Reports
+        function showReports() {
+            showScreen('reportsScreen');
+        }
+
+        function selectReportType(type) {
+            currentReportType = type;
+            saveState();
+            document.querySelectorAll('.report-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            generateReport();
+        }
+
+        function generateReport() {
+            const profileId = profiles[currentProfile].id;
+            const logs = prayerLogs[profileId] || {};
+            const content = document.getElementById('reportContent');
+            
+            if (currentReportType === 'daily') {
+                generateDailyReport(logs, content);
+            } else if (currentReportType === 'total') {
+                generateTotalReport(logs, content);
+            } else if (currentReportType === 'yearly') {
+                generateYearlyReport(logs, content);
+            } else if (currentReportType === 'monthly') {
+                generateMonthlyReport(logs, content);
+            }
+        }
+        
+        function generateDailyReport(logs, content) {
+            const profile = profiles[currentProfile];
+            const today = new Date().toISOString().split('T')[0];
+            const todayLogs = logs[today] || {};
+            const todayFormatted = formatDate(today);
+            
+            content.innerHTML = `
+                <h3 style="margin-bottom: 12px; color: var(--accent-primary);">Today's Prayer Report</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.9rem;">
+                    ${todayFormatted}
+                </p>
+                <div class="result-grid">
+                    ${prayers.map(prayer => {
+                        const status = todayLogs[prayer] || 'none';
+                        let statusText = 'Not Prayed';
+                        let statusColor = 'var(--text-muted)';
+                        
+                        if (status === 'done') {
+                            statusText = 'Done On-time ✓';
+                            statusColor = 'var(--accent-primary)';
+                        } else if (status === 'both') {
+                            statusText = 'Done + Qaza Done ✓🕌';
+                            statusColor = 'var(--accent-primary)';
+                        } else if (status === 'qaza') {
+                            statusText = 'Qaza Done 🕌';
+                            statusColor = 'var(--accent-gold)';
+                        } else if (status === 'missed') {
+                            statusText = 'Missed ✗';
+                            statusColor = '#ef4444';
+                        }
+                        
+                        return `
+                            <div class="result-item">
+                                <div style="flex: 1;">
+                                    <div class="prayer-name">${prayer}</div>
+                                    <div style="font-size: 0.9rem; margin-top: 8px; color: ${statusColor}; font-weight: 600;">
+                                        ${statusText}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+
+        function generateTotalReport(logs, content) {
+            const profile = profiles[currentProfile];
+            const stats = calculateStatsFromCreation(logs, profile.createdAt);
+            const startDate = formatDate(profile.createdAt.split('T')[0]);
+            const today = formatDate(new Date().toISOString().split('T')[0]);
+            
+            content.innerHTML = `
+                <h3 style="margin-bottom: 12px; color: var(--accent-primary);">Total Prayer Statistics</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.9rem;">
+                    Since ${startDate} (Profile Created)
+                </p>
+                <div class="result-grid">
+                    ${prayers.map(prayer => {
+                        const s = stats[prayer];
+                        return `
+                            <div class="result-item">
+                                <div style="flex: 1;">
+                                    <div class="prayer-name">${prayer}</div>
+                                    <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;">
+                                        On-time: <span style="color: var(--accent-primary); font-weight: 600;">${s.onTimePercentage}%</span> |
+                                        Qaza: <span style="color: var(--accent-gold); font-weight: 600;">${s.qazaPercentage}%</span> |
+                                        Missed: <span style="color: #ef4444; font-weight: 600;">${s.missedPercentage}%</span>
+                                    </div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                                        ✓ ${s.onTime} | 🕌 ${s.qazaDone} | ✗ ${s.missed}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
+                </div>
+            `;
+        }
+        
+        function calculateStatsFromCreation(logs, createdAt) {
+            const stats = {};
+
+            // Normalize to noon to avoid timezone edge cases
+            const startDate = new Date(createdAt);
+            startDate.setHours(12, 0, 0, 0);
+
+            const today = new Date();
+            today.setHours(12, 0, 0, 0);
+
+            const dayMs = 1000 * 60 * 60 * 24;
+            const totalDays = today >= startDate ? (Math.floor((today - startDate) / dayMs) + 1) : 0;
+
+            prayers.forEach(prayer => {
+                stats[prayer] = {
+                    onTime: 0,
+                    qazaDone: 0,
+                    missed: 0,
+                    onTimePercentage: 0,
+                    qazaPercentage: 0,
+                    missedPercentage: 0
+                };
+            });
+
+            Object.keys(logs).forEach(date => {
+                const logDate = new Date(date + 'T12:00:00');
+                if (logDate >= startDate && logDate <= today) {
+                    prayers.forEach(prayer => {
+                        const status = logs[date][prayer];
+                        if (status === 'done') {
+                            stats[prayer].onTime++;
+                        } else if (status === 'both') {
+                            stats[prayer].onTime++;
+                            stats[prayer].qazaDone++;
+                        } else if (status === 'qaza') {
+                            stats[prayer].qazaDone++;
+                        } else if (status === 'missed') {
+                            stats[prayer].missed++;
+                        }
+                    });
+                }
+            });
+
+            prayers.forEach(prayer => {
+                if (totalDays > 0) {
+                    stats[prayer].onTimePercentage = Math.round((stats[prayer].onTime / totalDays) * 100);
+                    stats[prayer].qazaPercentage = Math.round((stats[prayer].qazaDone / totalDays) * 100);
+                    stats[prayer].missedPercentage = Math.round((stats[prayer].missed / totalDays) * 100);
+                }
+            });
+
+            return stats;
+        }
+
+        function generateYearlyReport(logs, content) {
+            const profile = profiles[currentProfile];
+
+            // Normalize to noon to avoid timezone edge cases
+            const startDate = new Date(profile.createdAt);
+            startDate.setHours(12, 0, 0, 0);
+
+            const today = new Date();
+            today.setHours(12, 0, 0, 0);
+            const yearlyStats = {};
+            
+            // Only include years from profile creation to now
+            for (let year = startDate.getFullYear(); year <= today.getFullYear(); year++) {
+                yearlyStats[year] = {};
+                prayers.forEach(prayer => {
+                    yearlyStats[year][prayer] = { onTime: 0, qazaDone: 0, missed: 0, totalDays: 0 };
+                });
+            }
+            
+            // Count days per year from creation date
+            Object.keys(yearlyStats).forEach(year => {
+                const yearStart = new Date(Math.max(startDate.getTime(), new Date(year, 0, 1).getTime()));
+                yearStart.setHours(12, 0, 0, 0);
+                const yearEnd = new Date(Math.min(today.getTime(), new Date(year, 11, 31).getTime()));
+                yearEnd.setHours(12, 0, 0, 0);
+                const days = yearEnd >= yearStart ? (Math.floor((yearEnd - yearStart) / (1000 * 60 * 60 * 24)) + 1) : 0;
+                
+                prayers.forEach(prayer => {
+                    yearlyStats[year][prayer].totalDays = days;
+                });
+            });
+            
+            Object.keys(logs).forEach(date => {
+                const logDate = new Date(date + 'T12:00:00');
+                const year = logDate.getFullYear();
+                
+                if (yearlyStats[year] && logDate >= startDate && logDate <= today) {
+                    prayers.forEach(prayer => {
+                        const status = logs[date][prayer];
+                        if (status === 'done') {
+                            yearlyStats[year][prayer].onTime++;
+                        } else if (status === 'both') {
+                            yearlyStats[year][prayer].onTime++;
+                            yearlyStats[year][prayer].qazaDone++;
+                        } else if (status === 'qaza') {
+                            yearlyStats[year][prayer].qazaDone++;
+                        } else if (status === 'missed') {
+                            yearlyStats[year][prayer].missed++;
+                        }
+                    });
+                }
+            });
+            
+            const years = Object.keys(yearlyStats).sort();
+            
+            content.innerHTML = `
+                <h3 style="margin-bottom: 20px; color: var(--accent-primary);">Yearly Reports</h3>
+                ${years.map(year => {
+                    const yearStart = new Date(Math.max(startDate.getTime(), new Date(year, 0, 1).getTime()));
+                    yearStart.setHours(12, 0, 0, 0);
+                    const yearEnd = new Date(Math.min(today.getTime(), new Date(year, 11, 31).getTime()));
+                    yearEnd.setHours(12, 0, 0, 0);
+                    const startFormatted = formatDate(yearStart.toISOString().split('T')[0]);
+                    const endFormatted = formatDate(yearEnd.toISOString().split('T')[0]);
+                    
+                    return `
+                        <div style="margin-bottom: 32px;">
+                            <h4 style="margin-bottom: 8px; color: var(--text-primary);">${year}</h4>
+                            <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 0.85rem;">
+                                ${startFormatted} to ${endFormatted}
+                            </p>
+                            <div class="result-grid">
+                                ${prayers.map(prayer => {
+                                    const s = yearlyStats[year][prayer];
+                                    const total = s.totalDays;
+                                    const onTimeP = total > 0 ? Math.round((s.onTime / total) * 100) : 0;
+                                    const qazaP = total > 0 ? Math.round((s.qazaDone / total) * 100) : 0;
+                                    const missedP = total > 0 ? Math.round((s.missed / total) * 100) : 0;
+                                    
+                                    return `
+                                        <div class="result-item">
+                                            <div style="flex: 1;">
+                                                <div class="prayer-name">${prayer}</div>
+                                                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;">
+                                                    On-time: <span style="color: var(--accent-primary); font-weight: 600;">${onTimeP}%</span> |
+                                                    Qaza: <span style="color: var(--accent-gold); font-weight: 600;">${qazaP}%</span> |
+                                                    Missed: <span style="color: #ef4444; font-weight: 600;">${missedP}%</span>
+                                                </div>
+                                                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                                                    ✓ ${s.onTime} | 🕌 ${s.qazaDone} | ✗ ${s.missed}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            `;
+        }
+
+        function generateMonthlyReport(logs, content) {
+            const profile = profiles[currentProfile];
+
+            // Normalize to noon to avoid timezone edge cases
+            const startDate = new Date(profile.createdAt);
+            startDate.setHours(12, 0, 0, 0);
+
+            const today = new Date();
+            today.setHours(12, 0, 0, 0);
+
+            const dayMs = 1000 * 60 * 60 * 24;
+            const months = ['January', 'February', 'March', 'April', 'May', 'June',
+                           'July', 'August', 'September', 'October', 'November', 'December'];
+
+            const monthlyStats = {};
+
+            // Build month keys from profile creation month up to current month
+            let cursor = new Date(startDate.getFullYear(), startDate.getMonth(), 1);
+            cursor.setHours(12, 0, 0, 0);
+
+            while (cursor <= today) {
+                const y = cursor.getFullYear();
+                const m = cursor.getMonth(); // 0-11
+                const monthKey = `${y}-${String(m + 1).padStart(2, '0')}`;
+
+                const monthStart = new Date(y, m, 1);
+                monthStart.setHours(12, 0, 0, 0);
+
+                const monthEnd = new Date(y, m + 1, 0);
+                monthEnd.setHours(12, 0, 0, 0);
+
+                const effectiveStart = new Date(Math.max(startDate.getTime(), monthStart.getTime()));
+                const effectiveEnd = new Date(Math.min(today.getTime(), monthEnd.getTime()));
+                const totalDays = effectiveEnd >= effectiveStart ? (Math.floor((effectiveEnd - effectiveStart) / dayMs) + 1) : 0;
+
+                monthlyStats[monthKey] = {
+                    year: y,
+                    monthIndex: m,
+                    totalDays,
+                    rangeStart: effectiveStart.toISOString().split('T')[0],
+                    rangeEnd: effectiveEnd.toISOString().split('T')[0]
+                };
+
+                prayers.forEach(prayer => {
+                    monthlyStats[monthKey][prayer] = { onTime: 0, qazaDone: 0, missed: 0 };
+                });
+
+                // move to next month
+                cursor = new Date(y, m + 1, 1);
+                cursor.setHours(12, 0, 0, 0);
+            }
+
+            // Aggregate logs into months
+            Object.keys(logs).forEach(date => {
+                const monthKey = date.substring(0, 7);
+                const logDate = new Date(date + 'T12:00:00');
+
+                if (monthlyStats[monthKey] && logDate >= startDate && logDate <= today) {
+                    prayers.forEach(prayer => {
+                        const status = logs[date][prayer];
+                        if (status === 'done') {
+                            monthlyStats[monthKey][prayer].onTime++;
+                        } else if (status === 'both') {
+                            monthlyStats[monthKey][prayer].onTime++;
+                            monthlyStats[monthKey][prayer].qazaDone++;
+                        } else if (status === 'qaza') {
+                            monthlyStats[monthKey][prayer].qazaDone++;
+                        } else if (status === 'missed') {
+                            monthlyStats[monthKey][prayer].missed++;
+                        }
+                    });
+                }
+            });
+
+            // Render newest month first
+            const keys = Object.keys(monthlyStats).sort().reverse();
+
+            content.innerHTML = `
+                <h3 style="margin-bottom: 20px; color: var(--accent-primary);">Monthly Reports (from profile start)</h3>
+                ${keys.map((monthKey) => {
+                    const monthData = monthlyStats[monthKey];
+                    const monthName = months[monthData.monthIndex];
+
+                    const startFormatted = formatDate(monthData.rangeStart);
+                    const endFormatted = formatDate(monthData.rangeEnd);
+
+                    return `
+                        <div style="margin-bottom: 32px;">
+                            <h4 style="margin-bottom: 8px; color: var(--text-primary);">${monthName} ${monthData.year}</h4>
+                            <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 0.85rem;">
+                                ${startFormatted} to ${endFormatted}
+                            </p>
+                            <div class="result-grid">
+                                ${prayers.map(prayer => {
+                                    const s = monthData[prayer];
+                                    const total = monthData.totalDays;
+                                    const onTimeP = total > 0 ? Math.round((s.onTime / total) * 100) : 0;
+                                    const qazaP = total > 0 ? Math.round((s.qazaDone / total) * 100) : 0;
+                                    const missedP = total > 0 ? Math.round((s.missed / total) * 100) : 0;
+
+                                    return `
+                                        <div class="result-item">
+                                            <div style="flex: 1;">
+                                                <div class="prayer-name">${prayer}</div>
+                                                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;">
+                                                    On-time: <span style="color: var(--accent-primary); font-weight: 600;">${onTimeP}%</span> |
+                                                    Qaza: <span style="color: var(--accent-gold); font-weight: 600;">${qazaP}%</span> |
+                                                    Missed: <span style="color: #ef4444; font-weight: 600;">${missedP}%</span>
+                                                </div>
+                                                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                                                    ✓ ${s.onTime} | 🕌 ${s.qazaDone} | ✗ ${s.missed}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
+                            </div>
+                        </div>
+                    `;
+                }).join('')}
+            `;
+        }
+
+        function printReport() {
+            window.print();
+        }
+
+        async function exportReportPDF() {
+            const el = document.getElementById('reportContent');
+            if (!el || !el.innerHTML.trim()) {
+                alert('Please open a report first, then download PDF.');
+                return;
+            }
+
+            if (!window.html2canvas || !window.jspdf) {
+                alert('PDF library not loaded. Please check internet once, then try again.');
+                return;
+            }
+
+            // Make a clean capture
+            const canvas = await html2canvas(el, {
+                scale: 2,
+                useCORS: true,
+                backgroundColor: null
+            });
+
+            const imgData = canvas.toDataURL('image/png');
+            const { jsPDF } = window.jspdf;
+
+            const pdf = new jsPDF('p', 'pt', 'a4');
+            const pageW = pdf.internal.pageSize.getWidth();
+            const pageH = pdf.internal.pageSize.getHeight();
+
+            const imgW = pageW;
+            const imgH = (canvas.height * imgW) / canvas.width;
+
+            let y = 0;
+            pdf.addImage(imgData, 'PNG', 0, y, imgW, imgH);
+
+            // If content is longer than one page
+            while (imgH + y > pageH) {
+                y -= pageH;
+                pdf.addPage();
+                pdf.addImage(imgData, 'PNG', 0, y, imgW, imgH);
+            }
+
+            const name = `qaza-report-${currentReportType}-${toLocalYMD(new Date())}.pdf`;
+            pdf.save(name);
+        }
+
+
+        // Local-safe YYYY-MM-DD (fixes 1-day back issue caused by toISOString/UTC)
+        function toLocalYMD(d) {
+            const y = d.getFullYear();
+            const m = String(d.getMonth() + 1).padStart(2, '0');
+            const day = String(d.getDate()).padStart(2, '0');
+            return `${y}-${m}-${day}`;
+        }
+
+        // Update custom calendar badge (replaces 📅 emoji that shows fixed July 17)
+        function updateCalendarIcon(dateStr) {
+            const d = dateStr ? new Date(dateStr + 'T12:00:00') : new Date();
+            const month = d.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+            const day = String(d.getDate()).padStart(2, '0');
+
+            const mEl = document.getElementById('calIconMonth');
+            const dEl = document.getElementById('calIconDay');
+            if (mEl) mEl.textContent = month;
+            if (dEl) dEl.textContent = day;
+        }
+
+        // Safe downloader (works better in Android WebView than clicking a detached <a>)
+        function triggerDownload(blob, filename) {
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.style.display = 'none';
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => {
+                URL.revokeObjectURL(url);
+                a.remove();
+            }, 800);
+        }
+
+        // Calendar
+        function showCalendar() {
+            const modal = document.getElementById('calendarModal');
+            modal.classList.add('active');
+            renderCalendar();
+        }
+
+        function closeCalendar() {
+            document.getElementById('calendarModal').classList.remove('active');
+        }
+
+        function renderCalendar() {
+            const container = document.getElementById('calendarContainer');
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth();
+            
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startDay = firstDay.getDay();
+            
+            let html = '<div style="text-align: center; margin-bottom: 16px; font-size: 1.2rem; font-weight: 600;">';
+            html += today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            html += '</div>';
+            
+            html += '<div class="calendar-grid">';
+            ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(day => {
+                html += `<div style="font-weight: 600; color: var(--text-secondary);">${day}</div>`;
+            });
+            
+            for (let i = 0; i < startDay; i++) {
+                html += '<div></div>';
+            }
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(year, month, day);
+                const dateStr = toLocalYMD(date);
+                const isToday = day === today.getDate();
+                const profileId = profiles[currentProfile]?.id;
+                const hasData = profileId && prayerLogs[profileId] && prayerLogs[profileId][dateStr];
+                
+                html += `<div class="calendar-day ${isToday ? 'today' : ''} ${hasData ? 'has-data' : ''}" 
+                         onclick="selectDate('${dateStr}')">${day}</div>`;
+            }
+            
+            html += '</div>';
+            container.innerHTML = html;
+        }
+
+        function selectDate(dateStr) {
+            // Set the date directly without timezone conversion
+            currentViewingDate = dateStr;
+            saveState();
+            closeCalendar();
+            updateTracker();
+        }
+        
+        function formatDate(dateStr) {
+            const date = new Date(dateStr + 'T12:00:00'); // Use noon to avoid timezone issues
+            const day = String(date.getDate()).padStart(2, '0');
+            const month = String(date.getMonth() + 1).padStart(2, '0');
+            const year = date.getFullYear();
+            return `${day}/${month}/${year}`;
+        }
+
+        // Export/Import
+        function exportBackup() {
+            const backup = {
+                profiles: profiles,
+                prayerLogs: prayerLogs,
+                exportDate: new Date().toISOString(),
+                version: '2.0'
+            };
+
+            const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+            const filename = `qaza-tracker-backup-${toLocalYMD(new Date())}.json`;
+            triggerDownload(blob, filename);
+        }
+
+        function importBackup(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const backup = JSON.parse(e.target.result);
+                    
+                    if (confirm('This will replace all current data. Continue?')) {
+                        profiles = backup.profiles || [];
+                        prayerLogs = backup.prayerLogs || {};
+                        saveData();
+                        renderProfiles();
+                        alert('Backup imported successfully!');
+                    }
+                } catch (err) {
+                    alert('Invalid backup file');
+                }
+                
+                // Reset file input
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        // Initialize on load
+        window.addEventListener('load', init);
+        
+        // Service Worker for PWA
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register('sw.js').then(reg => {
+                console.log('SW registered:', reg.scope);
+            }).catch(err => {
+                console.log('SW registration failed:', err);
+            });
+        }
+    </script>
+</body>
+</html>
