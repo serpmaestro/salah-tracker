@@ -989,6 +989,55 @@
             font-size: 0.85rem;
         }
 
+        .prayer-adj-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 8px;
+        }
+        .prayer-adj-item {
+            background: var(--bg-card);
+            border-radius: 12px;
+            padding: 10px;
+            text-align: center;
+            border: 1px solid var(--border);
+        }
+        .prayer-adj-item .adj-name {
+            font-size: 0.8rem;
+            font-weight: 700;
+            color: var(--text-secondary);
+            margin-bottom: 8px;
+        }
+        .prayer-adj-item .adj-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 6px;
+        }
+        .prayer-adj-item .adj-val {
+            font-size: 1rem;
+            font-weight: 800;
+            color: var(--accent-gold);
+            min-width: 32px;
+            text-align: center;
+        }
+        .adj-btn {
+            width: 26px;
+            height: 26px;
+            border-radius: 6px;
+            border: none;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            font-size: 1.1rem;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .adj-btn:hover { background: var(--accent-primary); color: white; }
+
         @media (max-width: 480px) {
             .container {
                 padding: 16px;
@@ -1054,7 +1103,14 @@
                 <p style="margin-bottom: 8px;">Developed by</p>
                 <p class="developer">Muhammad Waqar Hussain</p>
                 <p class="title">(SEO Consultant)</p>
-                <p style="margin-top: 12px; font-size: 0.85rem;">Remember me in your prayers</p>
+                <div style="margin-top: 16px; padding: 16px; background: rgba(16,185,129,0.07); border: 1px solid rgba(16,185,129,0.2); border-radius: 14px; line-height: 2.2;">
+                    <p style="font-family: 'Amiri', serif; font-size: 1.1rem; color: var(--accent-primary); direction: rtl; margin-bottom: 4px;">مجھے اپنی دعاؤں میں یاد رکھیں</p>
+                    <p style="font-size: 0.82rem; color: var(--text-secondary); direction: rtl; margin-bottom: 6px;">اذكرني في دعائك</p>
+                    <p style="font-size: 0.82rem; color: var(--text-muted);">Remember me in your prayers 🤲</p>
+                </div>
+                <button onclick="showScreen('installGuideScreen')" style="margin-top: 16px; width: 100%; padding: 14px; background: linear-gradient(135deg, rgba(16,185,129,0.15), rgba(5,150,105,0.15)); border: 1px solid rgba(16,185,129,0.35); border-radius: 14px; color: var(--accent-primary); font-size: 0.95rem; font-weight: 700; cursor: pointer; letter-spacing: 0.3px;">
+                    📲 How to Install this App on Your Phone
+                </button>
             </div>
         </div>
 
@@ -1133,7 +1189,10 @@
                 </div>
                 <div class="prayer-home-grid" id="homePrayerGrid"></div>
                 <div class="prayer-home-hijri">
-                    <span>📅</span>
+                    <span class="cal-icon" id="hijriIconBadge" onclick="openHijriAdjust()" title="Tap to adjust Hijri date" style="cursor:pointer;">
+                        <span class="cal-month" id="hijriIconMonth">RAM</span>
+                        <span class="cal-day" id="hijriIconDay">01</span>
+                    </span>
                     <span id="homeHijriDate"></span>
                     <button class="btn-link" onclick="openHijriAdjust()">Adjust</button>
                 </div>
@@ -1225,6 +1284,16 @@
                         <option value="Hanbali">Hanbali</option>
                     </select>
                 </div>
+                <div class="input-group">
+                    <label style="font-size:1rem; font-weight:700; color:var(--text-primary);">⏱️ Salah Time Fine-Tuning</label>
+                    <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:10px; line-height:1.5;">
+                        Adjust each prayer ± minutes to match your local mosque / area.
+                        <span style="color:var(--accent-gold);">+ve = later, −ve = earlier.</span>
+                    </p>
+                    <div class="prayer-adj-grid" id="editPrayerAdj">
+                        <!-- rendered by JS -->
+                    </div>
+                </div>
                 <div class="btn-row">
                     <button class="btn btn-secondary" onclick="cancelEdit()">Cancel</button>
                     <button class="btn" onclick="saveEdit()">Save Changes</button>
@@ -1271,11 +1340,130 @@
                         <option value="Hanbali">Hanbali</option>
                     </select>
                 </div>
+                <div class="input-group">
+                    <label style="font-size:1rem; font-weight:700; color:var(--text-primary);">⏱️ Salah Time Fine-Tuning</label>
+                    <p style="font-size:0.82rem; color:var(--text-secondary); margin-bottom:10px; line-height:1.5;">
+                        Adjust each prayer ± minutes to match your local mosque / area. 
+                        <span style="color:var(--accent-gold);">+ve = later, −ve = earlier.</span>
+                    </p>
+                    <div class="prayer-adj-grid" id="newPrayerAdj">
+                        <!-- rendered by JS -->
+                    </div>
+                </div>
                 <div class="btn-row">
                     <button class="btn btn-secondary" onclick="cancelCreate()">Cancel</button>
                     <button class="btn" onclick="saveNewProfile()">Continue to Setup</button>
                 </div>
             </div>
+        </div>
+
+        <!-- ══ INSTALLATION GUIDE SCREEN ══ -->
+        <div id="installGuideScreen" class="screen">
+
+          <!-- Title -->
+          <div style="text-align:center;margin-bottom:24px;padding:24px;background:linear-gradient(135deg,#1e293b,#334155);border-radius:20px;border:1px solid #475569;">
+            <div style="font-size:2rem;margin-bottom:8px;">📲</div>
+            <h2 style="font-size:1.4rem;font-weight:800;background:linear-gradient(135deg,#10b981,#059669);-webkit-background-clip:text;background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:4px;">App Installation Guide</h2>
+            <p style="color:#94a3b8;font-size:0.85rem;">اردو · عربی · English</p>
+          </div>
+
+          <!-- ─── URDU ─── -->
+          <div style="background:#1e293b;border-radius:18px;border:1px solid #475569;padding:22px;margin-bottom:18px;" dir="rtl">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+              <span style="font-size:1.3rem;">🇵🇰</span>
+              <h3 style="font-family:'Amiri',serif;font-size:1.2rem;color:#10b981;">اردو — انسٹالیشن گائیڈ</h3>
+            </div>
+            <div style="background:rgba(16,185,129,0.08);border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid rgba(16,185,129,0.2);">
+              <p style="font-family:'Amiri',serif;font-size:1rem;color:#fbbf24;font-weight:700;margin-bottom:10px;">🤖 اینڈرائیڈ (کروم براؤزر)</p>
+              <ol style="color:#cbd5e1;font-size:0.88rem;line-height:2.4;padding-right:18px;">
+                <li>اپنے فون میں <strong style="color:#10b981;">Chrome</strong> کھولیں</li>
+                <li>ایپ کا لنک ایڈریس بار میں ٹائپ یا پیسٹ کریں</li>
+                <li>اوپر دائیں <strong style="color:#10b981;">⋮ تین نقطے</strong> پر ٹیپ کریں</li>
+                <li><strong style="color:#10b981;">"Add to Home Screen"</strong> یا <strong style="color:#10b981;">"Install App"</strong> پر ٹیپ کریں</li>
+                <li><strong style="color:#10b981;">Install</strong> دبائیں — ہو گیا! ✅</li>
+              </ol>
+            </div>
+            <div style="background:rgba(251,191,36,0.08);border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid rgba(251,191,36,0.2);">
+              <p style="font-family:'Amiri',serif;font-size:1rem;color:#fbbf24;font-weight:700;margin-bottom:10px;">🍎 آئی فون / آئی پیڈ (سفاری)</p>
+              <ol style="color:#cbd5e1;font-size:0.88rem;line-height:2.4;padding-right:18px;">
+                <li>لنک <strong style="color:#fbbf24;">Safari</strong> میں کھولیں — کروم نہیں</li>
+                <li>نیچے <strong style="color:#fbbf24;">شیئر بٹن ⬆️</strong> پر ٹیپ کریں</li>
+                <li>نیچے اسکرول کریں → <strong style="color:#fbbf24;">"Add to Home Screen"</strong> پر ٹیپ کریں</li>
+                <li><strong style="color:#fbbf24;">Add</strong> پر ٹیپ کریں — ہو گیا! ✅</li>
+              </ol>
+            </div>
+            <div style="padding:12px;background:rgba(239,68,68,0.07);border-radius:12px;border:1px solid rgba(239,68,68,0.2);">
+              <p style="font-size:0.84rem;color:#fca5a5;line-height:2;">⚠️ <strong>فون بدلنے سے پہلے:</strong> ٹریکر اسکرین سے <strong>💾 Backup</strong> لیں اور واٹس ایپ / ای میل پر بھیجیں۔ نئے فون پر <strong>Import Backup</strong> سے سب واپس آ جائے گا۔</p>
+            </div>
+          </div>
+
+          <!-- ─── ARABIC ─── -->
+          <div style="background:#1e293b;border-radius:18px;border:1px solid #475569;padding:22px;margin-bottom:18px;" dir="rtl">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+              <span style="font-size:1.3rem;">🌙</span>
+              <h3 style="font-family:'Amiri',serif;font-size:1.2rem;color:#10b981;">العربية — دليل التثبيت</h3>
+            </div>
+            <div style="background:rgba(16,185,129,0.08);border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid rgba(16,185,129,0.2);">
+              <p style="font-family:'Amiri',serif;font-size:1rem;color:#fbbf24;font-weight:700;margin-bottom:10px;">🤖 أندرويد (كروم)</p>
+              <ol style="color:#cbd5e1;font-size:0.88rem;line-height:2.4;padding-right:18px;">
+                <li>افتح <strong style="color:#10b981;">Chrome</strong> على هاتفك</li>
+                <li>الصق رابط التطبيق في شريط العنوان</li>
+                <li>اضغط على <strong style="color:#10b981;">⋮ القائمة</strong> في أعلى اليمين</li>
+                <li>اختر <strong style="color:#10b981;">"إضافة إلى الشاشة الرئيسية"</strong></li>
+                <li>اضغط <strong style="color:#10b981;">تثبيت</strong> — تم! ✅</li>
+              </ol>
+            </div>
+            <div style="background:rgba(251,191,36,0.08);border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid rgba(251,191,36,0.2);">
+              <p style="font-family:'Amiri',serif;font-size:1rem;color:#fbbf24;font-weight:700;margin-bottom:10px;">🍎 iPhone / iPad (Safari)</p>
+              <ol style="color:#cbd5e1;font-size:0.88rem;line-height:2.4;padding-right:18px;">
+                <li>افتح الرابط في <strong style="color:#fbbf24;">Safari</strong> (ليس كروم)</li>
+                <li>اضغط زر <strong style="color:#fbbf24;">المشاركة ⬆️</strong> في الأسفل</li>
+                <li>اسحب للأسفل ← اضغط <strong style="color:#fbbf24;">"إضافة إلى الشاشة الرئيسية"</strong></li>
+                <li>اضغط <strong style="color:#fbbf24;">إضافة</strong> — تم! ✅</li>
+              </ol>
+            </div>
+            <div style="padding:12px;background:rgba(239,68,68,0.07);border-radius:12px;border:1px solid rgba(239,68,68,0.2);">
+              <p style="font-size:0.84rem;color:#fca5a5;line-height:2;">⚠️ <strong>قبل تغيير الهاتف:</strong> اضغط <strong>💾 Backup</strong> من شاشة المتابعة وأرسل الملف. ثم استخدم <strong>Import Backup</strong> في الهاتف الجديد.</p>
+            </div>
+          </div>
+
+          <!-- ─── ENGLISH ─── -->
+          <div style="background:#1e293b;border-radius:18px;border:1px solid #475569;padding:22px;margin-bottom:20px;">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+              <span style="font-size:1.3rem;">🌐</span>
+              <h3 style="font-size:1.1rem;font-weight:800;color:#10b981;">English — Installation Guide</h3>
+            </div>
+            <div style="background:rgba(16,185,129,0.08);border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid rgba(16,185,129,0.2);">
+              <p style="color:#fbbf24;font-weight:700;margin-bottom:10px;">🤖 Android (Chrome)</p>
+              <ol style="color:#cbd5e1;font-size:0.88rem;line-height:2.4;padding-left:18px;">
+                <li>Open <strong style="color:#10b981;">Chrome</strong> on your Android phone</li>
+                <li>Paste the app link in the address bar and open it</li>
+                <li>Tap <strong style="color:#10b981;">⋮ Menu</strong> (top right corner)</li>
+                <li>Tap <strong style="color:#10b981;">"Add to Home screen"</strong> or <strong style="color:#10b981;">"Install App"</strong></li>
+                <li>Tap <strong style="color:#10b981;">Install</strong> — Done! ✅</li>
+              </ol>
+            </div>
+            <div style="background:rgba(251,191,36,0.08);border-radius:14px;padding:16px;margin-bottom:12px;border:1px solid rgba(251,191,36,0.2);">
+              <p style="color:#fbbf24;font-weight:700;margin-bottom:10px;">🍎 iPhone / iPad (Safari)</p>
+              <ol style="color:#cbd5e1;font-size:0.88rem;line-height:2.4;padding-left:18px;">
+                <li>Open the link in <strong style="color:#fbbf24;">Safari</strong> — must be Safari, not Chrome</li>
+                <li>Tap the <strong style="color:#fbbf24;">Share button ⬆️</strong> at the bottom of the screen</li>
+                <li>Scroll down → tap <strong style="color:#fbbf24;">"Add to Home Screen"</strong></li>
+                <li>Tap <strong style="color:#fbbf24;">Add</strong> — Done! ✅</li>
+              </ol>
+            </div>
+            <div style="padding:12px;background:rgba(239,68,68,0.07);border-radius:12px;border:1px solid rgba(239,68,68,0.2);margin-bottom:10px;">
+              <p style="font-size:0.84rem;color:#fca5a5;line-height:2;">⚠️ <strong>Before changing phones:</strong> Go to the tracker → tap <strong>💾 Backup</strong>. Send the .json file to yourself via WhatsApp or email. On your new phone, tap <strong>Import Backup</strong> to restore all data.</p>
+            </div>
+            <div style="padding:12px;background:rgba(16,185,129,0.06);border-radius:12px;border:1px solid rgba(16,185,129,0.15);">
+              <p style="font-size:0.82rem;color:#94a3b8;line-height:1.9;">💡 <strong style="color:#10b981;">Tip:</strong> Works 100% offline after first install. No account or cloud needed — your data stays only on your device.</p>
+            </div>
+          </div>
+
+          <button onclick="goBack()" style="width:100%;padding:16px;background:linear-gradient(135deg,#10b981,#059669);border:none;border-radius:16px;color:white;font-size:1rem;font-weight:700;cursor:pointer;margin-bottom:20px;">
+            ← Back
+          </button>
+
         </div>
     </div>
 
@@ -1351,14 +1539,146 @@
             { value: 'never', label: 'Never', multiplier: 1.0 }
         ];
 
-        // Prayer times (simplified - in real app use actual calculation API)
-        const prayerTimes = {
-            Fajr: { start: '5:30 AM', end: '6:45 AM' },
-            Dhuhr: { start: '12:30 PM', end: '3:30 PM' },
-            Asr: { start: '3:45 PM', end: '5:45 PM' },
-            Maghrib: { start: '6:15 PM', end: '7:30 PM' },
-            Isha: { start: '7:45 PM', end: '11:00 PM' }
+        // Prayer times — updated from Aladhan API, persisted per profile per date
+        let prayerTimes = {
+            Fajr:    { start: '5:30 AM',  end: '6:45 AM' },
+            Dhuhr:   { start: '12:30 PM', end: '3:30 PM' },
+            Asr:     { start: '3:45 PM',  end: '5:45 PM' },
+            Maghrib: { start: '6:15 PM',  end: '7:30 PM' },
+            Isha:    { start: '7:45 PM',  end: '11:00 PM' }
         };
+
+        // Aladhan method codes
+        const methodCodes = { MWL: 3, ISNA: 2, Egypt: 5, Makkah: 4, Karachi: 1 };
+
+        // New prayer adjustment state (for create profile form)
+        let newProfileAdj = { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 };
+        let editProfileAdj = { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 };
+
+        // Render prayer adjustment grid into a container element
+        function renderPrayerAdjGrid(containerId, adjObj, onChangeFn) {
+            const container = document.getElementById(containerId);
+            if (!container) return;
+            container.innerHTML = prayers.map(p => `
+                <div class="prayer-adj-item">
+                    <div class="adj-name">${p}</div>
+                    <div class="adj-controls">
+                        <button class="adj-btn" onclick="${onChangeFn}('${p}', -5, '${containerId}')">−</button>
+                        <span class="adj-val" id="${containerId}_${p}">${adjObj[p] >= 0 ? '+' : ''}${adjObj[p]}</span>
+                        <button class="adj-btn" onclick="${onChangeFn}('${p}', 5, '${containerId}')">+</button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function changeNewAdj(prayer, delta, containerId) {
+            newProfileAdj[prayer] = Math.max(-70, Math.min(70, (newProfileAdj[prayer] || 0) + delta));
+            const el = document.getElementById(`${containerId}_${prayer}`);
+            if (el) el.textContent = `${newProfileAdj[prayer] >= 0 ? '+' : ''}${newProfileAdj[prayer]}`;
+        }
+
+        function changeEditAdj(prayer, delta, containerId) {
+            editProfileAdj[prayer] = Math.max(-70, Math.min(70, (editProfileAdj[prayer] || 0) + delta));
+            const el = document.getElementById(`${containerId}_${prayer}`);
+            if (el) el.textContent = `${editProfileAdj[prayer] >= 0 ? '+' : ''}${editProfileAdj[prayer]}`;
+        }
+
+        // Convert "HH:MM" (24h) to "H:MM AM/PM"
+        function convertTo12h(timeStr) {
+            const [h, m] = timeStr.split(':').map(Number);
+            const suffix = h >= 12 ? 'PM' : 'AM';
+            const h12 = h % 12 || 12;
+            return `${h12}:${String(m).padStart(2,'0')} ${suffix}`;
+        }
+
+        // Apply minute offset to a "H:MM AM/PM" string → returns new "H:MM AM/PM"
+        function applyMinuteOffset(timeStr, offsetMins) {
+            const [timePart, suffix] = timeStr.split(' ');
+            const [h, m] = timePart.split(':').map(Number);
+            let h24 = h;
+            if (suffix === 'PM' && h !== 12) h24 += 12;
+            if (suffix === 'AM' && h === 12) h24 = 0;
+            let totalMins = h24 * 60 + m + offsetMins;
+            totalMins = ((totalMins % 1440) + 1440) % 1440;
+            const nh = Math.floor(totalMins / 60);
+            const nm = totalMins % 60;
+            return convertTo12h(`${nh}:${String(nm).padStart(2,'0')}`);
+        }
+
+        // Fetch real prayer times from Aladhan API for current profile
+        async function fetchAndApplyPrayerTimes() {
+            if (currentProfile === null || !profiles[currentProfile]) return;
+            const profile = profiles[currentProfile];
+            if (!profile.city || !profile.country) return;
+
+            const todayStr = toLocalYMD(new Date());
+            const cacheKey = `ptCache_${profile.id}_${todayStr}`;
+            const cached = localStorage.getItem(cacheKey);
+
+            let rawTimes = null;
+            if (cached) {
+                try { rawTimes = JSON.parse(cached); } catch(e) {}
+            }
+
+            if (!rawTimes) {
+                try {
+                    const method = methodCodes[profile.method] || 1;
+                    const school = (profile.fiqh === 'Hanafi') ? 1 : 0;
+                    const url = `https://api.aladhan.com/v1/timingsByCity/${todayStr}?city=${encodeURIComponent(profile.city)}&country=${encodeURIComponent(profile.country)}&method=${method}&school=${school}`;
+                    const res = await fetch(url);
+                    const data = await res.json();
+                    if (data.code === 200 && data.data && data.data.timings) {
+                        rawTimes = data.data.timings;
+                        localStorage.setItem(cacheKey, JSON.stringify(rawTimes));
+                        // Also cache Hijri date
+                        const hijriData = data.data.date && data.data.date.hijri;
+                        if (hijriData) {
+                            localStorage.setItem(`hijriCache_${todayStr}`, JSON.stringify(hijriData));
+                        }
+                    }
+                } catch(e) {
+                    console.log('Prayer time API unavailable, using defaults');
+                }
+            }
+
+            if (rawTimes) {
+                const adj = profile.prayerAdjustments || {};
+                // Fajr end = sunrise; Maghrib end = Isha start approx
+                const toAmPm = t => convertTo12h(t.substring(0,5));
+                const fajrStart  = applyMinuteOffset(toAmPm(rawTimes.Fajr),    adj.Fajr    || 0);
+                const sunriseEnd = toAmPm(rawTimes.Sunrise);
+                const dhuhrStart = applyMinuteOffset(toAmPm(rawTimes.Dhuhr),   adj.Dhuhr   || 0);
+                const asrStart   = applyMinuteOffset(toAmPm(rawTimes.Asr),     adj.Asr     || 0);
+                const maghribStart = applyMinuteOffset(toAmPm(rawTimes.Maghrib), adj.Maghrib || 0);
+                const ishaStart  = applyMinuteOffset(toAmPm(rawTimes.Isha),    adj.Isha    || 0);
+                const midnight   = toAmPm(rawTimes.Midnight || '00:00');
+
+                prayerTimes = {
+                    Fajr:    { start: fajrStart,    end: sunriseEnd },
+                    Dhuhr:   { start: dhuhrStart,   end: asrStart },
+                    Asr:     { start: asrStart,     end: maghribStart },
+                    Maghrib: { start: maghribStart, end: ishaStart },
+                    Isha:    { start: ishaStart,    end: midnight }
+                };
+                updatePrayerHomeCard();
+                updatePrayerList();
+            }
+        }
+
+        // Fetch real Hijri date from cache or API
+        async function getHijriDateStr(dateObj) {
+            const dateStr = toLocalYMD(dateObj);
+            const cacheKey = `hijriCache_${dateStr}`;
+            const cached = localStorage.getItem(cacheKey);
+            if (cached) {
+                try {
+                    const h = JSON.parse(cached);
+                    return `${h.day} ${h.month.en}, ${h.year} AH`;
+                } catch(e) {}
+            }
+            // Fallback: use Intl
+            return formatHijriDate(dateObj);
+        }
 
         
         // ----- Home Prayer Times Card (Dashboard) -----
@@ -1472,16 +1792,20 @@
                 `).join('');
             }
 
-            // Hijri date
+            // Hijri date — try cache first then Intl fallback
             const offset = getHijriOffsetDays();
             const hijriDateObj = new Date();
             hijriDateObj.setDate(hijriDateObj.getDate() + offset);
 
             const hijriEl = document.getElementById('homeHijriDate');
             if (hijriEl) {
-                const txt = formatHijriDate(hijriDateObj);
-                hijriEl.textContent = txt || '';
+                getHijriDateStr(hijriDateObj).then(txt => {
+                    if (hijriEl) hijriEl.textContent = txt || '';
+                });
             }
+
+            // Update the Hijri badge icon (RAM / 01 etc.)
+            updateHijriCalIcon();
         }
 
         function refreshHomePrayerCard() {
@@ -1537,6 +1861,7 @@
             saveData();
             closeHijriAdjust();
             updatePrayerHomeCard();
+            updateHijriCalIcon();
         }
 
 
@@ -1662,10 +1987,13 @@
         function updateBackButton() {
             const backBtn = document.getElementById('backBtn');
             const activeScreen = document.querySelector('.screen.active');
+            const container = document.querySelector('.container');
             if (activeScreen && activeScreen.id !== 'profilesScreen') {
                 backBtn.classList.add('visible');
+                container.style.paddingTop = '68px';
             } else {
                 backBtn.classList.remove('visible');
+                container.style.paddingTop = '20px';
             }
         }
 
@@ -1676,7 +2004,7 @@
             const screenId = activeScreen.id;
             
             // Navigation logic based on current screen
-            if (screenId === 'trackerScreen' || screenId === 'editProfileScreen' || screenId === 'createProfileScreen') {
+            if (screenId === 'trackerScreen' || screenId === 'editProfileScreen' || screenId === 'createProfileScreen' || screenId === 'installGuideScreen') {
                 showScreen('profilesScreen');
             } else if (screenId === 'setupScreen1') {
                 showScreen('profilesScreen');
@@ -1706,6 +2034,7 @@
             profiles.forEach(p => {
                 if (typeof p.hijriOffsetDays !== 'number') p.hijriOffsetDays = 0;
                 if (!p.createdAt) p.createdAt = new Date().toISOString();
+                if (!p.prayerAdjustments) p.prayerAdjustments = { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 };
             });
         }
 
@@ -1740,7 +2069,9 @@
         }
 
         function showCreateProfile() {
+            newProfileAdj = { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 };
             showScreen('createProfileScreen');
+            renderPrayerAdjGrid('newPrayerAdj', newProfileAdj, 'changeNewAdj');
         }
 
         function saveNewProfile() {
@@ -1765,6 +2096,7 @@
                 country,
                 method,
                 fiqh,
+                prayerAdjustments: { ...newProfileAdj },
                 qazaCount: { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 },
                 hijriOffsetDays: 0,
                 createdAt: new Date().toISOString()
@@ -1810,8 +2142,12 @@
             document.getElementById('editCountry').value = profile.country;
             document.getElementById('editMethod').value = profile.method;
             document.getElementById('editFiqh').value = profile.fiqh;
-            
+
+            // Load existing adjustments
+            editProfileAdj = { ...(profile.prayerAdjustments || { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 }) };
+
             showScreen('editProfileScreen');
+            renderPrayerAdjGrid('editPrayerAdj', editProfileAdj, 'changeEditAdj');
         }
 
         function saveEdit() {
@@ -1822,8 +2158,13 @@
             profile.country = document.getElementById('editCountry').value.trim();
             profile.method = document.getElementById('editMethod').value;
             profile.fiqh = document.getElementById('editFiqh').value;
+            profile.prayerAdjustments = { ...editProfileAdj };
             
             saveData();
+            // Clear prayer time cache so new times are fetched
+            const todayStr = toLocalYMD(new Date());
+            localStorage.removeItem(`ptCache_${profile.id}_${todayStr}`);
+
             renderProfiles();
             showScreen('profilesScreen');
         }
@@ -1981,6 +2322,9 @@
             updateQazaSummary();
             updatePrayerList();
             updatePrayerHomeCard();
+            updateHijriCalIcon();
+            // Fetch real prayer times from API (async, updates UI when done)
+            fetchAndApplyPrayerTimes();
         }
 
         function updateCurrentDate() {
@@ -2651,16 +2995,58 @@
             return `${y}-${m}-${day}`;
         }
 
-        // Update custom calendar badge (replaces 📅 emoji that shows fixed July 17)
+        // Update Gregorian calendar badge (used for date navigation icon)
         function updateCalendarIcon(dateStr) {
             const d = dateStr ? new Date(dateStr + 'T12:00:00') : new Date();
             const month = d.toLocaleString('en-US', { month: 'short' }).toUpperCase();
             const day = String(d.getDate()).padStart(2, '0');
-
             const mEl = document.getElementById('calIconMonth');
             const dEl = document.getElementById('calIconDay');
             if (mEl) mEl.textContent = month;
             if (dEl) dEl.textContent = day;
+        }
+
+        // Hijri month short names for the badge icon
+        const hijriMonthShort = ['MUH','SAF','RAB1','RAB2','JUM1','JUM2','RAJ','SHA','RAM','SHW','DQA','DHJ'];
+
+        // Update the Islamic date badge on the home card (📅 area)
+        async function updateHijriCalIcon() {
+            const offset = getHijriOffsetDays();
+            const d = new Date();
+            d.setDate(d.getDate() + offset);
+            const todayStr = toLocalYMD(new Date());
+            const cacheKey = `hijriCache_${todayStr}`;
+            let hijriDay = null, hijriMonthIdx = null;
+
+            // Try API cache first
+            try {
+                const cached = localStorage.getItem(cacheKey);
+                if (cached) {
+                    const h = JSON.parse(cached);
+                    hijriDay = parseInt(h.day, 10) + offset;
+                    hijriMonthIdx = parseInt(h.month.number, 10) - 1;
+                }
+            } catch(e) {}
+
+            // Fallback: use Intl
+            if (hijriDay === null) {
+                try {
+                    const parts = new Intl.DateTimeFormat('en-u-ca-islamic', {
+                        day: 'numeric', month: 'numeric', year: 'numeric'
+                    }).formatToParts(d);
+                    const dayPart = parts.find(p => p.type === 'day');
+                    const monthPart = parts.find(p => p.type === 'month');
+                    hijriDay = parseInt(dayPart?.value, 10) || null;
+                    hijriMonthIdx = monthPart ? parseInt(monthPart.value, 10) - 1 : null;
+                } catch(e) {}
+            }
+
+            const hijriIconMonth = document.getElementById('hijriIconMonth');
+            const hijriIconDay = document.getElementById('hijriIconDay');
+            if (hijriIconMonth && hijriDay !== null) {
+                hijriIconMonth.textContent = hijriMonthShort[hijriMonthIdx] || 'ISL';
+                hijriIconDay.textContent = String(hijriDay).padStart(2, '0');
+            }
         }
 
         // Safe downloader (works better in Android WebView than clicking a detached <a>)
