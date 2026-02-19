@@ -11,7 +11,7 @@
 //  User prayer data, adjustments, counts are in localStorage — untouched.
 // ─────────────────────────────────────────────────────────────
 
-const BUILD_DATE  = '2026-02-19-v1';          // ← change this on every upload
+const BUILD_DATE  = '2026-02-19-v2';          // ← change this on every upload
 const CACHE_NAME  = `qaza-tracker-${BUILD_DATE}`;
 
 const STATIC_ASSETS = [

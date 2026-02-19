@@ -1665,7 +1665,13 @@
                         localStorage.setItem(cacheKey, JSON.stringify(rawTimes));
                         const hijriData = data.data.date && data.data.date.hijri;
                         if (hijriData) {
-                            localStorage.setItem(`hijriCache_${todayStr}`, JSON.stringify(hijriData));
+                            // Save with new key used by getHijriDateStr
+                            const normH = {
+                                day: hijriData.day,
+                                month: { en: hijriData.month.en, number: hijriData.month.number },
+                                year: hijriData.year
+                            };
+                            localStorage.setItem(`hijri2_${todayStr}`, JSON.stringify(normH));
                         }
                     }
                 } catch(e) {
@@ -1691,64 +1697,62 @@
 
         // Fetch real Hijri date from cache or API
         // ── Reliable Gregorian → Hijri conversion (works on ALL mobile browsers) ──
-        const HIJRI_MONTHS = [
+        // ── Hijri month names ────────────────────────────────────────────────────
+        const HIJRI_MONTHS_EN = [
             'Muharram','Safar','Rabi al-Awwal','Rabi al-Thani',
             'Jumada al-Ula','Jumada al-Akhirah','Rajab',"Sha'ban",
             'Ramadan','Shawwal',"Dhu al-Qi'dah",'Dhu al-Hijjah'
         ];
 
-        function gregorianToHijri(gDate) {
-            const Y = gDate.getFullYear();
-            const M = gDate.getMonth() + 1;
-            const D = gDate.getDate();
-            const JD = Math.floor((14 + 12 * M - Math.floor(M / 14)) / 12);
-            const S  = Y + 4800 - JD;
-            let julianDay = D
-                + Math.floor((153 * (M + 12 * JD - 3) + 2) / 5)
-                + 365 * S
-                + Math.floor(S / 4)
-                - Math.floor(S / 100)
-                + Math.floor(S / 400)
-                - 32045;
-            const L  = julianDay - 1948440 + 10632;
-            const N  = Math.floor((L - 1) / 10631);
-            const L2 = L - 10631 * N + 354;
-            const J  = Math.floor((10985 - L2) / 5316) * Math.floor((50 * L2) / 17719)
-                     + Math.floor(L2 / 5670) * Math.floor((43 * L2) / 15238);
-            const L3 = L2
-                     - Math.floor((30 - J) / 15) * Math.floor((17719 * J) / 50)
-                     - Math.floor(J / 16) * Math.floor((15238 * J) / 43)
-                     + 29;
-            const hMonth = Math.floor((24 * L3) / 709);
-            const hDay   = L3 - Math.floor((709 * hMonth) / 24);
-            const hYear  = 30 * N + J - 30;
-            return { day: hDay, month: hMonth, year: hYear };
+        // ── Cache key for Hijri: keyed by Gregorian date (profile-independent) ──
+        function hijriCacheKey(dateStr) { return `hijri2_${dateStr}`; }
+
+        // ── Format from a cached API hijri object {day, month:{en}, year} ──────
+        function fmtHijriObj(h) {
+            return `${h.day} ${h.month.en}, ${h.year} AH`;
         }
 
-        async function getHijriDateStr(dateObj) {
-            // 1. Try API cache (most accurate — accounts for moon sighting)
-            const dateStr = toLocalYMD(dateObj);
-            const cacheKey = `hijriCache_${dateStr}`;
-            const cached = localStorage.getItem(cacheKey);
-            if (cached) {
-                try {
-                    const h = JSON.parse(cached);
-                    return `${h.day} ${h.month.en}, ${h.year} AH`;
-                } catch(e) {}
-            }
-            // 2. Fallback: built-in calculation (works offline on ALL devices)
-            return formatHijriDate(dateObj);
+        // ── Reliable offline fallback: Umm al-Qura approximation ────────────────
+        function gregorianToHijriApprox(gDate) {
+            // Tabular Islamic calendar (civil) — accurate to ±2 days vs astronomical
+            const JD = Math.floor((14 + 12 * (gDate.getMonth()+1) - Math.floor((gDate.getMonth()+1)/14)) / 12);
+            const S  = gDate.getFullYear() + 4800 - JD;
+            let jdn = gDate.getDate()
+                + Math.floor((153*(gDate.getMonth()+1 + 12*JD - 3)+2)/5)
+                + 365*S + Math.floor(S/4) - Math.floor(S/100) + Math.floor(S/400) - 32045;
+            const L  = jdn - 1948440 + 10632;
+            const N  = Math.floor((L-1)/10631);
+            const L2 = L - 10631*N + 354;
+            const J  = Math.floor((10985-L2)/5316)*Math.floor((50*L2)/17719)
+                     + Math.floor(L2/5670)*Math.floor((43*L2)/15238);
+            const L3 = L2 - Math.floor((30-J)/15)*Math.floor((17719*J)/50)
+                     - Math.floor(J/16)*Math.floor((15238*J)/43) + 29;
+            const hM = Math.floor((24*L3)/709);
+            const hD = L3 - Math.floor((709*hM)/24);
+            const hY = 30*N + J - 30;
+            return { day: hD, month: hM, year: hY };
         }
 
         function formatHijriDate(dateObj) {
             try {
-                // Note: pure calculation can differ 1-4 days from actual moon sighting.
-                // API call corrects this once online. Fallback shows approximate.
-                const h = gregorianToHijri(dateObj);
-                return `${HIJRI_MONTHS[h.month - 1]} ${h.day}, ${h.year} AH`;
-            } catch(e) {
-                return '';
+                const h = gregorianToHijriApprox(dateObj);
+                return `${HIJRI_MONTHS_EN[h.month - 1]} ${h.day}, ${h.year} AH`;
+            } catch(e) { return ''; }
+        }
+
+        // ── Main function: get Hijri string for a date (with offset applied) ────
+        async function getHijriDateStr(dateObj) {
+            const dateStr = toLocalYMD(dateObj);
+            const ck = hijriCacheKey(dateStr);
+            const cached = localStorage.getItem(ck);
+            if (cached) {
+                try {
+                    const h = JSON.parse(cached);
+                    return fmtHijriObj(h);
+                } catch(e) {}
             }
+            // Offline fallback
+            return formatHijriDate(dateObj);
         }
 
         // ----- Home Prayer Times Card (Dashboard) -----
@@ -1901,12 +1905,13 @@
             const adjusted = new Date();
             adjusted.setDate(adjusted.getDate() + offset);
 
-            const baseTxt = formatHijriDate(base);
-            const adjTxt = formatHijriDate(adjusted);
-
-            if (previewEl) {
-                previewEl.textContent = baseTxt && adjTxt ? `Today: ${baseTxt} → Adjusted: ${adjTxt}` : '';
-            }
+            // Use async getHijriDateStr so it shows API-corrected date (not math guess)
+            Promise.all([getHijriDateStr(base), getHijriDateStr(adjusted)]).then(([baseTxt, adjTxt]) => {
+                if (previewEl) {
+                    previewEl.textContent = baseTxt && adjTxt
+                        ? `Today: ${baseTxt}  →  Adjusted: ${adjTxt}` : '';
+                }
+            });
         }
 
         function saveHijriAdjust() {
@@ -2375,30 +2380,43 @@
         }
 
         // Fetch Hijri date from Aladhan API independently (fast, dedicated call)
+        // Fetch Hijri date from dedicated Aladhan endpoint (no dependency on prayer times)
+        // Caches per day. Uses new key 'hijri2_YYYY-MM-DD' to avoid stale old cache.
         async function fetchHijriDateFromAPI() {
-            const todayStr = toLocalYMD(new Date());
-            const cacheKey = `hijriCache_${todayStr}`;
-            // Already cached today — skip
-            if (localStorage.getItem(cacheKey)) {
+            const today = new Date();
+            const todayStr = toLocalYMD(today);
+            const ck = hijriCacheKey(todayStr);
+
+            // Already have fresh data for today
+            if (localStorage.getItem(ck)) {
                 updatePrayerHomeCard();
                 updateHijriCalIcon();
                 return;
             }
-            if (currentProfile === null || !profiles[currentProfile]) return;
-            const profile = profiles[currentProfile];
-            if (!profile.city || !profile.country) return;
+
             try {
-                const method = methodCodes[profile.method] || 1;
-                const url = `https://api.aladhan.com/v1/timingsByCity/${todayStr}?city=${encodeURIComponent(profile.city)}&country=${encodeURIComponent(profile.country)}&method=${method}`;
-                const res = await fetch(url);
+                // Use dedicated Gregorian→Hijri endpoint: DD-MM-YYYY format
+                const d = String(today.getDate()).padStart(2,'0');
+                const m = String(today.getMonth()+1).padStart(2,'0');
+                const y = today.getFullYear();
+                const url = `https://api.aladhan.com/v1/gToH/${d}-${m}-${y}`;
+                const res = await fetch(url, { signal: AbortSignal.timeout(6000) });
                 const data = await res.json();
-                if (data.code === 200 && data.data && data.data.date && data.data.date.hijri) {
-                    localStorage.setItem(cacheKey, JSON.stringify(data.data.date.hijri));
+
+                if (data.code === 200 && data.data && data.data.hijri) {
+                    const h = data.data.hijri;
+                    // Normalise: ensure month has .en field
+                    const normalised = {
+                        day: h.day,
+                        month: { en: h.month.en, number: h.month.number },
+                        year: h.year
+                    };
+                    localStorage.setItem(ck, JSON.stringify(normalised));
                     updatePrayerHomeCard();
                     updateHijriCalIcon();
                 }
             } catch(e) {
-                // Offline — built-in fallback already shown
+                // Offline or API unavailable — math fallback is already shown
             }
         }
 
@@ -3252,7 +3270,7 @@
         window.addEventListener('load', init);
         
         // ── App version (must match sw.js BUILD_DATE) ───────────────────────
-        const APP_VERSION = '2026-02-19-v1';
+        const APP_VERSION = '2026-02-19-v2';
 
         // ── Detect new SW version and prompt user to refresh ────────────────
         if ('serviceWorker' in navigator) {
