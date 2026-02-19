@@ -970,7 +970,7 @@
             font-size: 0.9rem;
         }
         .prayer-home-hijri {
-            display: flex;
+            display: none !important;
             align-items: center;
             gap: 10px;
             color: var(--text-secondary);
@@ -1075,7 +1075,8 @@
                 display: none !important;
             }
         }
-    </style>
+            .prayer-home-hijri, #hijriModal { display: none !important; }
+        </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
@@ -1806,29 +1807,41 @@
                 return { prayer: p, start, end };
             });
 
-            let current = schedule.find(s => now >= s.start && now <= s.end);
+            // Find which prayer window we're currently in
+            const currentIdx = schedule.findIndex(s => now >= s.start && now <= s.end);
             let label = '';
             let remainingMs = 0;
             let showPrayer = '';
 
-            if (current) {
-                showPrayer = current.prayer;
-                label = `Remaining Time of ${current.prayer}`;
-                remainingMs = current.end - now;
+            // Tomorrow's Fajr (used for Isha remaining + after-Isha)
+            const tomorrow = new Date(todayBase);
+            tomorrow.setDate(tomorrow.getDate() + 1);
+            const fajrTomorrow = parseTimeOnDate(prayerTimes.Fajr.start, tomorrow);
+
+            if (currentIdx !== -1) {
+                // We are inside a prayer window — show time until NEXT prayer starts
+                showPrayer = schedule[currentIdx].prayer;
+                const nextIdx = currentIdx + 1;
+                if (nextIdx < schedule.length) {
+                    // Time until next prayer (e.g. Fajr→Dhuhr, Maghrib→Isha)
+                    label = `Time Until ${schedule[nextIdx].prayer}`;
+                    remainingMs = schedule[nextIdx].start - now;
+                } else {
+                    // Isha — time until tomorrow Fajr
+                    label = 'Time Until Fajr';
+                    remainingMs = fajrTomorrow - now;
+                }
             } else {
-                // Next prayer
+                // Between prayers — show time until next prayer starts
                 const next = schedule.find(s => now < s.start);
                 if (next) {
                     showPrayer = next.prayer;
                     label = `Time Until ${next.prayer}`;
                     remainingMs = next.start - now;
                 } else {
-                    // After Isha -> next is tomorrow Fajr
+                    // After Isha ended — time until tomorrow Fajr
                     showPrayer = 'Fajr';
                     label = 'Time Until Fajr';
-                    const tomorrow = new Date(todayBase);
-                    tomorrow.setDate(tomorrow.getDate() + 1);
-                    const fajrTomorrow = parseTimeOnDate(prayerTimes.Fajr.start, tomorrow);
                     remainingMs = fajrTomorrow - now;
                 }
             }
