@@ -3187,13 +3187,33 @@
         // Initialize on load
         window.addEventListener('load', init);
         
-        // Service Worker for PWA
+        // ── App version (must match sw.js BUILD_DATE) ───────────────────────
+        const APP_VERSION = '2026-02-19-v1';
+
+        // ── Detect new SW version and prompt user to refresh ────────────────
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.register('sw.js').then(reg => {
-                console.log('SW registered:', reg.scope);
-            }).catch(err => {
-                console.log('SW registration failed:', err);
-            });
+                reg.addEventListener('updatefound', () => {
+                    const newWorker = reg.installing;
+                    newWorker.addEventListener('statechange', () => {
+                        if (newWorker.state === 'activated') {
+                            // New version activated — show a subtle banner
+                            const banner = document.createElement('div');
+                            banner.innerHTML = `
+                                <div style="position:fixed;bottom:80px;left:16px;right:16px;background:#10b981;color:white;
+                                    padding:14px 18px;border-radius:14px;display:flex;align-items:center;
+                                    justify-content:space-between;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.3);font-weight:600;">
+                                    <span>🆕 App updated! Reload for latest version.</span>
+                                    <button onclick="window.location.reload()" style="background:white;color:#10b981;border:none;
+                                        padding:8px 16px;border-radius:8px;font-weight:700;cursor:pointer;margin-left:12px;">
+                                        Reload
+                                    </button>
+                                </div>`;
+                            document.body.appendChild(banner);
+                        }
+                    });
+                });
+            }).catch(err => console.log('SW error:', err));
         }
     </script>
 </body>
