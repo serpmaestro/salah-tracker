@@ -1690,7 +1690,43 @@
         }
 
         // Fetch real Hijri date from cache or API
+        // ── Reliable Gregorian → Hijri conversion (works on ALL mobile browsers) ──
+        const HIJRI_MONTHS = [
+            'Muharram','Safar','Rabi al-Awwal','Rabi al-Thani',
+            'Jumada al-Ula','Jumada al-Akhirah','Rajab',"Sha'ban",
+            'Ramadan','Shawwal',"Dhu al-Qi'dah",'Dhu al-Hijjah'
+        ];
+
+        function gregorianToHijri(gDate) {
+            const Y = gDate.getFullYear();
+            const M = gDate.getMonth() + 1;
+            const D = gDate.getDate();
+            const JD = Math.floor((14 + 12 * M - Math.floor(M / 14)) / 12);
+            const S  = Y + 4800 - JD;
+            let julianDay = D
+                + Math.floor((153 * (M + 12 * JD - 3) + 2) / 5)
+                + 365 * S
+                + Math.floor(S / 4)
+                - Math.floor(S / 100)
+                + Math.floor(S / 400)
+                - 32045;
+            const L  = julianDay - 1948440 + 10632;
+            const N  = Math.floor((L - 1) / 10631);
+            const L2 = L - 10631 * N + 354;
+            const J  = Math.floor((10985 - L2) / 5316) * Math.floor((50 * L2) / 17719)
+                     + Math.floor(L2 / 5670) * Math.floor((43 * L2) / 15238);
+            const L3 = L2
+                     - Math.floor((30 - J) / 15) * Math.floor((17719 * J) / 50)
+                     - Math.floor(J / 16) * Math.floor((15238 * J) / 43)
+                     + 29;
+            const hMonth = Math.floor((24 * L3) / 709);
+            const hDay   = L3 - Math.floor((709 * hMonth) / 24);
+            const hYear  = 30 * N + J - 30;
+            return { day: hDay, month: hMonth, year: hYear };
+        }
+
         async function getHijriDateStr(dateObj) {
+            // 1. Try API cache (most accurate — accounts for moon sighting)
             const dateStr = toLocalYMD(dateObj);
             const cacheKey = `hijriCache_${dateStr}`;
             const cached = localStorage.getItem(cacheKey);
@@ -1700,11 +1736,21 @@
                     return `${h.day} ${h.month.en}, ${h.year} AH`;
                 } catch(e) {}
             }
-            // Fallback: use Intl
+            // 2. Fallback: built-in calculation (works offline on ALL devices)
             return formatHijriDate(dateObj);
         }
 
-        
+        function formatHijriDate(dateObj) {
+            try {
+                // Note: pure calculation can differ 1-4 days from actual moon sighting.
+                // API call corrects this once online. Fallback shows approximate.
+                const h = gregorianToHijri(dateObj);
+                return `${HIJRI_MONTHS[h.month - 1]} ${h.day}, ${h.year} AH`;
+            } catch(e) {
+                return '';
+            }
+        }
+
         // ----- Home Prayer Times Card (Dashboard) -----
         function parseTimeOnDate(timeStr, baseDate) {
             // timeStr like "5:30 AM"
@@ -1733,18 +1779,6 @@
         function getHijriOffsetDays() {
             const profile = profiles[currentProfile];
             return profile && typeof profile.hijriOffsetDays === 'number' ? profile.hijriOffsetDays : 0;
-        }
-
-        function formatHijriDate(dateObj) {
-            try {
-                return new Intl.DateTimeFormat('en-u-ca-islamic', {
-                    day: 'numeric',
-                    month: 'long',
-                    year: 'numeric'
-                }).format(dateObj);
-            } catch (e) {
-                return '';
-            }
         }
 
         function updatePrayerHomeCard() {
@@ -2340,6 +2374,34 @@
             showScreen('trackerScreen');
         }
 
+        // Fetch Hijri date from Aladhan API independently (fast, dedicated call)
+        async function fetchHijriDateFromAPI() {
+            const todayStr = toLocalYMD(new Date());
+            const cacheKey = `hijriCache_${todayStr}`;
+            // Already cached today — skip
+            if (localStorage.getItem(cacheKey)) {
+                updatePrayerHomeCard();
+                updateHijriCalIcon();
+                return;
+            }
+            if (currentProfile === null || !profiles[currentProfile]) return;
+            const profile = profiles[currentProfile];
+            if (!profile.city || !profile.country) return;
+            try {
+                const method = methodCodes[profile.method] || 1;
+                const url = `https://api.aladhan.com/v1/timingsByCity/${todayStr}?city=${encodeURIComponent(profile.city)}&country=${encodeURIComponent(profile.country)}&method=${method}`;
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data.code === 200 && data.data && data.data.date && data.data.date.hijri) {
+                    localStorage.setItem(cacheKey, JSON.stringify(data.data.date.hijri));
+                    updatePrayerHomeCard();
+                    updateHijriCalIcon();
+                }
+            } catch(e) {
+                // Offline — built-in fallback already shown
+            }
+        }
+
         // Tracker
         function updateTracker() {
             updateCurrentDate();
@@ -2347,6 +2409,8 @@
             updatePrayerList();
             updatePrayerHomeCard();
             updateHijriCalIcon();
+            // Fetch Hijri date first (fast, independent)
+            fetchHijriDateFromAPI();
             // Fetch real prayer times from API (async, updates UI when done)
             fetchAndApplyPrayerTimes();
         }
