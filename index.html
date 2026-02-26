@@ -310,42 +310,37 @@
             border-radius: 12px;
         }
         
-        .result-grid {
-            display: grid;
-            gap: 16px;
-            margin: 24px 0;
-        }
-        
+        .result-grid { display: grid; gap: 10px; margin: 20px 0; }
+
         .result-item {
             background: var(--bg-card);
-            padding: 20px;
+            padding: 0;
             border-radius: 16px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
             border: 1px solid var(--border);
-            transition: all 0.2s ease;
+            overflow: hidden;
+            transition: background 0.2s;
         }
-        
-        .result-item:hover {
-            background: var(--bg-secondary);
-            transform: translateX(4px);
-        }
-        
-        .result-item .prayer-name {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--text-primary);
-        }
-        
+        .result-item:hover { background: var(--bg-secondary); }
+        .result-item .prayer-name { font-size: 1rem; font-weight: 800; color: var(--text-primary); }
         .result-item .prayer-count {
-            font-size: 1.6rem;
-            font-weight: 700;
-            color: var(--accent-primary);
-            display: flex;
-            align-items: center;
-            gap: 12px;
+            font-size: 1.6rem; font-weight: 700; color: var(--accent-primary);
+            display: flex; align-items: center; gap: 12px;
         }
+        .report-card-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 14px 18px 10px; border-bottom: 1px solid var(--border);
+        }
+        .report-stat-row { display: flex; gap: 8px; padding: 12px 18px 14px; }
+        .report-stat-pill {
+            flex: 1; text-align: center; padding: 8px 4px;
+            border-radius: 10px; font-size: 0.78rem; font-weight: 700;
+        }
+        .report-stat-pill .pill-val { font-size: 1.05rem; font-weight: 800; display: block; margin-bottom: 2px; }
+        .pill-done { background: rgba(16,185,129,0.12); color: #10b981; }
+        .pill-qaza { background: rgba(245,158,11,0.12);  color: #f59e0b; }
+        .pill-miss { background: rgba(239,68,68,0.12);   color: #ef4444; }
+        .pill-none { background: rgba(148,163,184,0.1);  color: #94a3b8; }
+        .daily-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; }
         
         .plus-minus-btns {
             display: flex;
@@ -1079,8 +1074,6 @@
         </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-    <!-- Google Identity Services -->
-    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
     <div class="container">
@@ -1218,17 +1211,6 @@
             <button class="btn" onclick="showReports()" style="margin-top: 20px;">
                 📊 View Reports
             </button>
-
-            <!-- Google Drive Sync Bar -->
-            <div class="gdrive-bar" id="gdrivebar">
-                <div class="gdrive-status">
-                    <div class="gdrive-dot" id="gdriveDot"></div>
-                    <span id="gdriveStatusText">Not connected to Google Drive</span>
-                </div>
-                <button class="gdrive-btn" id="gdriveBtn" onclick="handleGDriveBtn()">
-                    Connect Drive
-                </button>
-            </div>
             
             <div class="export-buttons">
                 <button class="btn-export" onclick="exportBackup()">💾 Backup</button>
@@ -1943,300 +1925,6 @@
 
 
         // Initialize
-
-        // ══════════════════════════════════════════════════════════════════════
-        //  GOOGLE DRIVE SYNC
-        //  • Data saved as "qaza-tracker-backup.json" in user's Google Drive
-        //  • Auto-syncs every saveData() call when connected
-        //  • On first connect, merges Drive data with local (keeps newer)
-        //  • TOKEN stored in localStorage — survives browser cache clears
-        //    (tokens do expire after 1hr but refresh silently on next open)
-        // ══════════════════════════════════════════════════════════════════════
-
-        // ← REPLACE THIS with your Google Cloud OAuth Client ID
-        const GDRIVE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com';
-
-        const GDRIVE_SCOPE     = 'https://www.googleapis.com/auth/drive.file';
-        const GDRIVE_FILE_NAME = 'qaza-tracker-backup.json';
-
-        let gdriveToken      = localStorage.getItem('gdriveToken')      || null;
-        let gdriveTokenExp   = localStorage.getItem('gdriveTokenExp')   || 0;
-        let gdriveFileId     = localStorage.getItem('gdriveFileId')     || null;
-        let gdriveUserEmail  = localStorage.getItem('gdriveUserEmail')  || null;
-        let gdriveSyncing    = false;
-
-        // ── UI helpers ────────────────────────────────────────────────────────
-        function updateDriveUI() {
-            const dot  = document.getElementById('gdriveDot');
-            const txt  = document.getElementById('gdriveStatusText');
-            const btn  = document.getElementById('gdriveBtn');
-            if (!dot) return;
-
-            if (gdriveSyncing) {
-                dot.className  = 'gdrive-dot syncing';
-                txt.textContent = 'Syncing to Google Drive…';
-                btn.textContent = '⟳';
-                btn.disabled = true;
-            } else if (gdriveToken && Date.now() < gdriveTokenExp) {
-                dot.className  = 'gdrive-dot connected';
-                txt.textContent = gdriveUserEmail ? `Drive: ${gdriveUserEmail}` : 'Google Drive connected ✓';
-                btn.textContent = 'Disconnect';
-                btn.className  = 'gdrive-btn disconnect';
-                btn.disabled = false;
-            } else {
-                dot.className  = 'gdrive-dot';
-                txt.textContent = 'Not connected to Google Drive';
-                btn.textContent = 'Connect Drive';
-                btn.className  = 'gdrive-btn';
-                btn.disabled = false;
-            }
-        }
-
-        function setDriveError(msg) {
-            const dot = document.getElementById('gdriveDot');
-            const txt = document.getElementById('gdriveStatusText');
-            if (dot) dot.className = 'gdrive-dot error';
-            if (txt) txt.textContent = msg;
-            const btn = document.getElementById('gdriveBtn');
-            if (btn) { btn.textContent = 'Retry'; btn.className = 'gdrive-btn'; btn.disabled = false; }
-        }
-
-        // ── Auth ──────────────────────────────────────────────────────────────
-        function handleGDriveBtn() {
-            if (gdriveToken && Date.now() < gdriveTokenExp) {
-                disconnectDrive();
-            } else {
-                connectDrive();
-            }
-        }
-
-        function connectDrive() {
-            if (!GDRIVE_CLIENT_ID || GDRIVE_CLIENT_ID.includes('YOUR_GOOGLE')) {
-                alert('⚠️ Google Drive not configured yet.\n\nOpen index.html, find GDRIVE_CLIENT_ID and replace it with your Google Cloud OAuth Client ID.\n\nSee the setup guide for instructions.');
-                return;
-            }
-            const client = google.accounts.oauth2.initTokenClient({
-                client_id: GDRIVE_CLIENT_ID,
-                scope: GDRIVE_SCOPE,
-                callback: async (resp) => {
-                    if (resp.error) {
-                        setDriveError('Sign-in failed: ' + resp.error);
-                        return;
-                    }
-                    gdriveToken    = resp.access_token;
-                    gdriveTokenExp = Date.now() + (resp.expires_in * 1000);
-                    localStorage.setItem('gdriveToken',    gdriveToken);
-                    localStorage.setItem('gdriveTokenExp', gdriveTokenExp);
-
-                    // Get user email
-                    try {
-                        const info = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
-                            headers: { Authorization: 'Bearer ' + gdriveToken }
-                        });
-                        const u = await info.json();
-                        gdriveUserEmail = u.email || '';
-                        localStorage.setItem('gdriveUserEmail', gdriveUserEmail);
-                    } catch(e) {}
-
-                    updateDriveUI();
-
-                    // On first connect: load from Drive (restores data if localStorage was cleared)
-                    await loadFromDrive(true);
-                }
-            });
-            client.requestAccessToken({ prompt: 'consent' });
-        }
-
-        function disconnectDrive() {
-            if (!confirm('Disconnect Google Drive?\n\nYour local prayer data stays on this device.')) return;
-            gdriveToken     = null;
-            gdriveTokenExp  = 0;
-            gdriveFileId    = null;
-            gdriveUserEmail = null;
-            localStorage.removeItem('gdriveToken');
-            localStorage.removeItem('gdriveTokenExp');
-            localStorage.removeItem('gdriveFileId');
-            localStorage.removeItem('gdriveUserEmail');
-            updateDriveUI();
-        }
-
-        // ── Drive file operations ──────────────────────────────────────────────
-        async function findDriveFile() {
-            const res = await fetch(
-                `https://www.googleapis.com/drive/v3/files?q=name='${GDRIVE_FILE_NAME}' and trashed=false&fields=files(id,modifiedTime)`,
-                { headers: { Authorization: 'Bearer ' + gdriveToken } }
-            );
-            const data = await res.json();
-            if (data.files && data.files.length > 0) {
-                gdriveFileId = data.files[0].id;
-                localStorage.setItem('gdriveFileId', gdriveFileId);
-                return data.files[0];
-            }
-            return null;
-        }
-
-        async function saveToDrive() {
-            if (!gdriveToken || Date.now() >= gdriveTokenExp) return;
-            if (gdriveSyncing) return;
-
-            gdriveSyncing = true;
-            updateDriveUI();
-
-            try {
-                const payload = JSON.stringify({ profiles, prayerLogs, version: '2.0', savedAt: new Date().toISOString() });
-                const blob    = new Blob([payload], { type: 'application/json' });
-
-                if (!gdriveFileId) await findDriveFile();
-
-                if (gdriveFileId) {
-                    // Update existing file
-                    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${gdriveFileId}?uploadType=media`, {
-                        method: 'PATCH',
-                        headers: { Authorization: 'Bearer ' + gdriveToken, 'Content-Type': 'application/json' },
-                        body: blob
-                    });
-                } else {
-                    // Create new file
-                    const meta   = new Blob([JSON.stringify({ name: GDRIVE_FILE_NAME, mimeType: 'application/json' })], { type: 'application/json' });
-                    const form   = new FormData();
-                    form.append('metadata', meta);
-                    form.append('file', blob);
-                    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
-                        method: 'POST',
-                        headers: { Authorization: 'Bearer ' + gdriveToken },
-                        body: form
-                    });
-                    const data = await res.json();
-                    gdriveFileId = data.id;
-                    localStorage.setItem('gdriveFileId', gdriveFileId);
-                }
-            } catch(e) {
-                console.warn('Drive save failed:', e);
-                setDriveError('Sync failed — will retry');
-            }
-
-            gdriveSyncing = false;
-            updateDriveUI();
-        }
-
-        async function loadFromDrive(isFirstConnect = false) {
-            if (!gdriveToken || Date.now() >= gdriveTokenExp) return;
-
-            gdriveSyncing = true;
-            updateDriveUI();
-
-            try {
-                const file = await findDriveFile();
-                if (!file) {
-                    // No file yet — push local data to Drive
-                    gdriveSyncing = false;
-                    await saveToDrive();
-                    return;
-                }
-
-                // Download the file content
-                const res  = await fetch(`https://www.googleapis.com/drive/v3/files/${gdriveFileId}?alt=media`, {
-                    headers: { Authorization: 'Bearer ' + gdriveToken }
-                });
-                const data = await res.json();
-
-                if (data.profiles) {
-                    if (isFirstConnect && profiles.length > 0) {
-                        // Merge: Drive wins on conflict (it's the cloud backup)
-                        const merged = mergeData(
-                            { profiles, prayerLogs },
-                            { profiles: data.profiles, prayerLogs: data.prayerLogs || {} }
-                        );
-                        profiles   = merged.profiles;
-                        prayerLogs = merged.prayerLogs;
-                        saveData();
-                        renderProfiles();
-                        alert(`✅ Google Drive connected!\n\nYour data has been merged with the cloud backup.\n\nProfiles: ${profiles.length}`);
-                    } else if (profiles.length === 0) {
-                        // Local is empty — fully restore from Drive
-                        profiles   = data.profiles || [];
-                        prayerLogs = data.prayerLogs || {};
-                        saveData();
-                        renderProfiles();
-                        alert(`✅ Data restored from Google Drive!\n\nProfiles: ${profiles.length}`);
-                    } else {
-                        alert('✅ Google Drive connected! Auto-sync is now active.');
-                    }
-                }
-            } catch(e) {
-                console.warn('Drive load failed:', e);
-                setDriveError('Could not load from Drive');
-            }
-
-            gdriveSyncing = false;
-            updateDriveUI();
-        }
-
-        // ── Merge two datasets (keeps all profiles, merges logs by date) ──────
-        function mergeData(local, cloud) {
-            // Merge profiles: cloud wins if same ID
-            const merged = { profiles: [...cloud.profiles], prayerLogs: {} };
-
-            // Add any local profiles not in cloud
-            local.profiles.forEach(lp => {
-                if (!merged.profiles.find(cp => cp.id === lp.id)) {
-                    merged.profiles.push(lp);
-                }
-            });
-
-            // Merge prayer logs: cloud wins per-day per-prayer
-            const allIds = new Set([
-                ...Object.keys(local.prayerLogs || {}),
-                ...Object.keys(cloud.prayerLogs || {})
-            ]);
-
-            allIds.forEach(profileId => {
-                merged.prayerLogs[profileId] = {};
-                const localDays = (local.prayerLogs  || {})[profileId] || {};
-                const cloudDays = (cloud.prayerLogs || {})[profileId] || {};
-                const allDates  = new Set([...Object.keys(localDays), ...Object.keys(cloudDays)]);
-                allDates.forEach(date => {
-                    merged.prayerLogs[profileId][date] = { ...(localDays[date] || {}), ...(cloudDays[date] || {}) };
-                });
-            });
-
-            return merged;
-        }
-
-        // ── Silent token refresh on app open ──────────────────────────────────
-        async function tryTokenRefresh() {
-            if (!GDRIVE_CLIENT_ID || GDRIVE_CLIENT_ID.includes('YOUR_GOOGLE')) return;
-            if (!localStorage.getItem('gdriveToken')) return;
-
-            // Token still valid
-            if (Date.now() < gdriveTokenExp - 60000) {
-                updateDriveUI();
-                return;
-            }
-
-            // Try silent refresh (no popup)
-            try {
-                const client = google.accounts.oauth2.initTokenClient({
-                    client_id: GDRIVE_CLIENT_ID,
-                    scope: GDRIVE_SCOPE,
-                    prompt: '',
-                    callback: (resp) => {
-                        if (!resp.error) {
-                            gdriveToken    = resp.access_token;
-                            gdriveTokenExp = Date.now() + (resp.expires_in * 1000);
-                            localStorage.setItem('gdriveToken',    gdriveToken);
-                            localStorage.setItem('gdriveTokenExp', gdriveTokenExp);
-                        }
-                        updateDriveUI();
-                    }
-                });
-                client.requestAccessToken({ prompt: '' });
-            } catch(e) {
-                gdriveToken = null;
-                updateDriveUI();
-            }
-        }
-
         function init() {
             loadData();
             restoreState();
@@ -2245,12 +1933,14 @@
             setupManifest();
             checkInstallPrompt();
             updateCalendarIcon(currentViewingDate);
-            // Google Drive: restore UI state + try silent token refresh
-            updateDriveUI();
-            setTimeout(tryTokenRefresh, 1500);
-            
-            // Auto-check missed prayers
-            setInterval(checkMissedPrayers, 60000); // Check every minute
+
+            // Mark ALL past unlogged prayers as missed on every app open
+            markAllPastMissed();
+            // Also run immediately for today's passed prayers
+            checkMissedPrayers();
+
+            // Auto-check missed prayers every minute
+            setInterval(checkMissedPrayers, 60000);
 
             // Update home prayer card timer (remaining time + clock)
             setInterval(() => {
@@ -2352,6 +2042,7 @@
             saveState();
             
             if (screenId === 'trackerScreen') {
+                markAllPastMissed(); // catch any missed from days not opened
                 updateTracker();
             } else if (screenId === 'reportsScreen') {
                 generateReport();
@@ -2418,10 +2109,6 @@
                 prayerLogs,
                 version: '2.0'
             }));
-            // Auto-sync to Google Drive if connected
-            if (gdriveToken && Date.now() < gdriveTokenExp) {
-                saveToDrive();
-            }
         }
 
         function renderProfiles() {
@@ -2830,11 +2517,23 @@
             listEl.innerHTML = prayers.map(prayer => {
                 const status = dayLogs[prayer] || 'none';
                 const times = prayerTimes[prayer];
-                const endTime = parseTime(times.end);
-                const isPastTime = isToday && now > endTime;
+
+                // A prayer is "past" when the NEXT prayer's start time arrives.
+                // Isha is never auto-missed on today's view — only after midnight (next day open).
+                let isPastTime = false;
+                if (!isToday) {
+                    isPastTime = true;
+                } else {
+                    const prayerIdx = prayers.indexOf(prayer);
+                    if (prayerIdx < prayers.length - 1) {
+                        const nextStart = parseTimeOnDate(prayerTimes[prayers[prayerIdx + 1]].start, now);
+                        isPastTime = now > nextStart;
+                    } else {
+                        isPastTime = false; // Isha: never auto-miss on today's view
+                    }
+                }
+
                 const isAutoMissed = isPastTime && status === 'none';
-                
-                // Auto-mark as missed if time passed and no action taken
                 if (isAutoMissed) {
                     dayLogs[prayer] = 'missed';
                     profiles[currentProfile].qazaCount[prayer]++;
@@ -2930,30 +2629,91 @@
         }
 
         // Auto-check missed prayers
+        // ── Run once on app open: mark ALL past-date unlogged prayers as missed ──
+        // This catches any day the app was not opened (vacation, phone off, etc.)
+        function markAllPastMissed() {
+            if (currentProfile === null) return;
+
+            const now     = new Date();
+            const today   = toLocalYMD(now);
+            const profileId = profiles[currentProfile].id;
+
+            if (!prayerLogs[profileId]) prayerLogs[profileId] = {};
+
+            // Find the earliest date we should check from:
+            // profile creation date or 60 days ago (whichever is more recent)
+            const profile   = profiles[currentProfile];
+            const created   = new Date(profile.createdAt || now);
+            const cutoff    = new Date(now);
+            cutoff.setDate(cutoff.getDate() - 60);
+            const startFrom = created > cutoff ? created : cutoff;
+
+            let changed = false;
+            const cursor = new Date(startFrom);
+            cursor.setHours(12, 0, 0, 0);
+
+            while (toLocalYMD(cursor) < today) {
+                const dateStr = toLocalYMD(cursor);
+                if (!prayerLogs[profileId][dateStr]) {
+                    prayerLogs[profileId][dateStr] = {};
+                }
+                const dayLogs = prayerLogs[profileId][dateStr];
+
+                prayers.forEach(prayer => {
+                    const status = dayLogs[prayer];
+                    if (!status || status === 'none') {
+                        dayLogs[prayer] = 'missed';
+                        profiles[currentProfile].qazaCount[prayer]++;
+                        changed = true;
+                    }
+                });
+
+                cursor.setDate(cursor.getDate() + 1);
+            }
+
+            if (changed) saveData();
+        }
+
+        // ── Runs every 60s: marks today's passed prayers + Isha check ──────────
         function checkMissedPrayers() {
             if (currentProfile === null) return;
-            
-            const now = new Date();
-            const today = now.toISOString().split('T')[0];
+
+            const now       = new Date();
+            const today     = toLocalYMD(now);
             const profileId = profiles[currentProfile].id;
-            
+
             if (!prayerLogs[profileId]) prayerLogs[profileId] = {};
             if (!prayerLogs[profileId][today]) prayerLogs[profileId][today] = {};
-            
-            const todayLogs = prayerLogs[profileId][today];
-            
+
+            // Yesterday: mark ALL unlogged prayers missed (catches Isha + any missed)
+            const yd = new Date(now);
+            yd.setDate(yd.getDate() - 1);
+            const yesterday = toLocalYMD(yd);
+            if (!prayerLogs[profileId][yesterday]) prayerLogs[profileId][yesterday] = {};
             prayers.forEach(prayer => {
-                const times = prayerTimes[prayer];
-                const endTime = parseTime(times.end);
-                const currentStatus = todayLogs[prayer] || 'none';
-                
-                if (now > endTime && currentStatus === 'none') {
-                    // Time passed and no action taken
-                    todayLogs[prayer] = 'missed';
+                const s = prayerLogs[profileId][yesterday][prayer];
+                if (!s || s === 'none') {
+                    prayerLogs[profileId][yesterday][prayer] = 'missed';
                     profiles[currentProfile].qazaCount[prayer]++;
                 }
             });
-            
+
+            // Today: mark missed when next prayer's start has arrived
+            const todayLogs = prayerLogs[profileId][today];
+            prayers.forEach(prayer => {
+                const currentStatus = todayLogs[prayer] || 'none';
+                if (currentStatus !== 'none') return;
+                const prayerIdx = prayers.indexOf(prayer);
+                if (prayerIdx < prayers.length - 1) {
+                    const nextStart = parseTimeOnDate(prayerTimes[prayers[prayerIdx + 1]].start, now);
+                    if (now > nextStart) {
+                        todayLogs[prayer] = 'missed';
+                        profiles[currentProfile].qazaCount[prayer]++;
+                    }
+                }
+                // Isha: never auto-missed on today's view — handled by yesterday check
+            });
+
             saveData();
             if (document.querySelector('.screen.active')?.id === 'trackerScreen') {
                 updateTracker();
@@ -3002,44 +2762,41 @@
         }
         
         function generateDailyReport(logs, content) {
-            const profile = profiles[currentProfile];
-            const today = new Date().toISOString().split('T')[0];
+            const today = toLocalYMD(new Date());
             const todayLogs = logs[today] || {};
             const todayFormatted = formatDate(today);
-            
+            const statusMeta = {
+                done:   { label: 'On-time ✓',       cls: 'pill-done' },
+                both:   { label: 'Done + Qaza ✓🕌', cls: 'pill-done' },
+                qaza:   { label: 'Qaza Done 🕌',     cls: 'pill-qaza' },
+                missed: { label: 'Missed ✗',         cls: 'pill-miss' },
+                none:   { label: 'Not recorded',      cls: 'pill-none' }
+            };
+            const doneCount   = prayers.filter(p => ['done','both'].includes(todayLogs[p])).length;
+            const missedCount = prayers.filter(p => todayLogs[p] === 'missed').length;
             content.innerHTML = `
-                <h3 style="margin-bottom: 12px; color: var(--accent-primary);">Today's Prayer Report</h3>
-                <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.9rem;">
-                    ${todayFormatted}
-                </p>
+                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+                    <div>
+                        <div style="font-size:1.15rem;font-weight:800;color:var(--text-primary);">Today's Report</div>
+                        <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:2px;">${todayFormatted}</div>
+                    </div>
+                    <div style="display:flex;gap:8px;">
+                        <span style="background:rgba(16,185,129,0.12);color:#10b981;padding:6px 12px;border-radius:20px;font-size:0.8rem;font-weight:700;">${doneCount} ✓</span>
+                        <span style="background:rgba(239,68,68,0.12);color:#ef4444;padding:6px 12px;border-radius:20px;font-size:0.8rem;font-weight:700;">${missedCount} ✗</span>
+                    </div>
+                </div>
                 <div class="result-grid">
                     ${prayers.map(prayer => {
                         const status = todayLogs[prayer] || 'none';
-                        let statusText = 'Not Prayed';
-                        let statusColor = 'var(--text-muted)';
-                        
-                        if (status === 'done') {
-                            statusText = 'Done On-time ✓';
-                            statusColor = 'var(--accent-primary)';
-                        } else if (status === 'both') {
-                            statusText = 'Done + Qaza Done ✓🕌';
-                            statusColor = 'var(--accent-primary)';
-                        } else if (status === 'qaza') {
-                            statusText = 'Qaza Done 🕌';
-                            statusColor = 'var(--accent-gold)';
-                        } else if (status === 'missed') {
-                            statusText = 'Missed ✗';
-                            statusColor = '#ef4444';
-                        }
-                        
+                        const meta = statusMeta[status] || statusMeta.none;
+                        const time = prayerTimes[prayer] ? prayerTimes[prayer].start : '';
                         return `
                             <div class="result-item">
-                                <div style="flex: 1;">
+                                <div class="report-card-header">
                                     <div class="prayer-name">${prayer}</div>
-                                    <div style="font-size: 0.9rem; margin-top: 8px; color: ${statusColor}; font-weight: 600;">
-                                        ${statusText}
-                                    </div>
+                                    <span class="daily-status-badge ${meta.cls}" style="font-size:0.8rem;padding:5px 12px;border-radius:20px;">${meta.label}</span>
                                 </div>
+                                ${time ? `<div style="padding:6px 18px 10px;font-size:0.78rem;color:var(--text-muted);">⏰ ${time}</div>` : ''}
                             </div>
                         `;
                     }).join('')}
@@ -3047,36 +2804,44 @@
             `;
         }
 
-        function generateTotalReport(logs, content) {
+        function renderStatCard(prayer, s, total) {
+            const onP = total > 0 ? Math.round((s.onTime   / total) * 100) : 0;
+            const qP  = total > 0 ? Math.round((s.qazaDone / total) * 100) : 0;
+            const mP  = total > 0 ? Math.round((s.missed   / total) * 100) : 0;
+            return `
+                <div class="result-item">
+                    <div class="report-card-header">
+                        <div class="prayer-name">${prayer}</div>
+                        <div style="font-size:0.75rem;color:var(--text-muted);">${total} days</div>
+                    </div>
+                    <div style="padding:4px 18px 2px;">
+                        <div style="height:4px;background:var(--border);border-radius:4px;overflow:hidden;">
+                            <div style="height:100%;width:${Math.max(onP,1)}%;background:linear-gradient(90deg,#10b981,#059669);border-radius:4px;"></div>
+                        </div>
+                    </div>
+                    <div class="report-stat-row">
+                        <div class="report-stat-pill pill-done"><span class="pill-val">${onP}%</span>✓ ${s.onTime}</div>
+                        <div class="report-stat-pill pill-qaza"><span class="pill-val">${qP}%</span>🕌 ${s.qazaDone}</div>
+                        <div class="report-stat-pill pill-miss"><span class="pill-val">${mP}%</span>✗ ${s.missed}</div>
+                    </div>
+                </div>
+            `;
+        }
+
+                function generateTotalReport(logs, content) {
             const profile = profiles[currentProfile];
             const stats = calculateStatsFromCreation(logs, profile.createdAt);
             const startDate = formatDate(profile.createdAt.split('T')[0]);
             const today = formatDate(new Date().toISOString().split('T')[0]);
             
+            const totalDays = stats[prayers[0]] ? (stats[prayers[0]].onTime + stats[prayers[0]].qazaDone + stats[prayers[0]].missed) : 0;
             content.innerHTML = `
-                <h3 style="margin-bottom: 12px; color: var(--accent-primary);">Total Prayer Statistics</h3>
-                <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.9rem;">
-                    Since ${startDate} (Profile Created)
-                </p>
+                <div style="margin-bottom:16px;">
+                    <div style="font-size:1.15rem;font-weight:800;color:var(--text-primary);">Total Statistics</div>
+                    <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:2px;">Since ${startDate} (Profile Created)</div>
+                </div>
                 <div class="result-grid">
-                    ${prayers.map(prayer => {
-                        const s = stats[prayer];
-                        return `
-                            <div class="result-item">
-                                <div style="flex: 1;">
-                                    <div class="prayer-name">${prayer}</div>
-                                    <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;">
-                                        On-time: <span style="color: var(--accent-primary); font-weight: 600;">${s.onTimePercentage}%</span> |
-                                        Qaza: <span style="color: var(--accent-gold); font-weight: 600;">${s.qazaPercentage}%</span> |
-                                        Missed: <span style="color: #ef4444; font-weight: 600;">${s.missedPercentage}%</span>
-                                    </div>
-                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
-                                        ✓ ${s.onTime} | 🕌 ${s.qazaDone} | ✗ ${s.missed}
-                                    </div>
-                                </div>
-                            </div>
-                        `;
-                    }).join('')}
+                    ${prayers.map(prayer => renderStatCard(prayer, stats[prayer], totalDays)).join('')}
                 </div>
             `;
         }
@@ -3191,7 +2956,7 @@
             const years = Object.keys(yearlyStats).sort();
             
             content.innerHTML = `
-                <h3 style="margin-bottom: 20px; color: var(--accent-primary);">Yearly Reports</h3>
+                <div style="font-size:1.15rem;font-weight:800;color:var(--text-primary);margin-bottom:20px;">Yearly Reports</div>
                 ${years.map(year => {
                     const yearStart = new Date(Math.max(startDate.getTime(), new Date(year, 0, 1).getTime()));
                     yearStart.setHours(12, 0, 0, 0);
@@ -3201,35 +2966,13 @@
                     const endFormatted = formatDate(yearEnd.toISOString().split('T')[0]);
                     
                     return `
-                        <div style="margin-bottom: 32px;">
-                            <h4 style="margin-bottom: 8px; color: var(--text-primary);">${year}</h4>
-                            <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 0.85rem;">
-                                ${startFormatted} to ${endFormatted}
-                            </p>
+                        <div style="margin-bottom: 28px;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:12px 16px;background:var(--bg-card);border-radius:14px;border:1px solid var(--border);">
+                                <span style="font-size:1.2rem;font-weight:800;color:var(--accent-primary);">${year}</span>
+                                <span style="font-size:0.78rem;color:var(--text-secondary);">${startFormatted} → ${endFormatted}</span>
+                            </div>
                             <div class="result-grid">
-                                ${prayers.map(prayer => {
-                                    const s = yearlyStats[year][prayer];
-                                    const total = s.totalDays;
-                                    const onTimeP = total > 0 ? Math.round((s.onTime / total) * 100) : 0;
-                                    const qazaP = total > 0 ? Math.round((s.qazaDone / total) * 100) : 0;
-                                    const missedP = total > 0 ? Math.round((s.missed / total) * 100) : 0;
-                                    
-                                    return `
-                                        <div class="result-item">
-                                            <div style="flex: 1;">
-                                                <div class="prayer-name">${prayer}</div>
-                                                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;">
-                                                    On-time: <span style="color: var(--accent-primary); font-weight: 600;">${onTimeP}%</span> |
-                                                    Qaza: <span style="color: var(--accent-gold); font-weight: 600;">${qazaP}%</span> |
-                                                    Missed: <span style="color: #ef4444; font-weight: 600;">${missedP}%</span>
-                                                </div>
-                                                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
-                                                    ✓ ${s.onTime} | 🕌 ${s.qazaDone} | ✗ ${s.missed}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    `;
-                                }).join('')}
+                                ${prayers.map(prayer => renderStatCard(prayer, yearlyStats[year][prayer], yearlyStats[year][prayer].totalDays)).join('')}
                             </div>
                         </div>
                     `;
@@ -3315,7 +3058,7 @@
             const keys = Object.keys(monthlyStats).sort().reverse();
 
             content.innerHTML = `
-                <h3 style="margin-bottom: 20px; color: var(--accent-primary);">Monthly Reports (from profile start)</h3>
+                <div style="font-size:1.15rem;font-weight:800;color:var(--text-primary);margin-bottom:20px;">Monthly Reports</div>
                 ${keys.map((monthKey) => {
                     const monthData = monthlyStats[monthKey];
                     const monthName = months[monthData.monthIndex];
@@ -3324,35 +3067,13 @@
                     const endFormatted = formatDate(monthData.rangeEnd);
 
                     return `
-                        <div style="margin-bottom: 32px;">
-                            <h4 style="margin-bottom: 8px; color: var(--text-primary);">${monthName} ${monthData.year}</h4>
-                            <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 0.85rem;">
-                                ${startFormatted} to ${endFormatted}
-                            </p>
+                        <div style="margin-bottom: 28px;">
+                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:12px 16px;background:var(--bg-card);border-radius:14px;border:1px solid var(--border);">
+                                <span style="font-size:1.1rem;font-weight:800;color:var(--accent-primary);">${monthName} ${monthData.year}</span>
+                                <span style="font-size:0.78rem;color:var(--text-secondary);">${startFormatted} → ${endFormatted}</span>
+                            </div>
                             <div class="result-grid">
-                                ${prayers.map(prayer => {
-                                    const s = monthData[prayer];
-                                    const total = monthData.totalDays;
-                                    const onTimeP = total > 0 ? Math.round((s.onTime / total) * 100) : 0;
-                                    const qazaP = total > 0 ? Math.round((s.qazaDone / total) * 100) : 0;
-                                    const missedP = total > 0 ? Math.round((s.missed / total) * 100) : 0;
-
-                                    return `
-                                        <div class="result-item">
-                                            <div style="flex: 1;">
-                                                <div class="prayer-name">${prayer}</div>
-                                                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;">
-                                                    On-time: <span style="color: var(--accent-primary); font-weight: 600;">${onTimeP}%</span> |
-                                                    Qaza: <span style="color: var(--accent-gold); font-weight: 600;">${qazaP}%</span> |
-                                                    Missed: <span style="color: #ef4444; font-weight: 600;">${missedP}%</span>
-                                                </div>
-                                                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
-                                                    ✓ ${s.onTime} | 🕌 ${s.qazaDone} | ✗ ${s.missed}
-                                                </div>
-                                            </div>
-                                        </div>
-                                    `;
-                                }).join('')}
+                                ${prayers.map(prayer => renderStatCard(prayer, monthData[prayer], monthData.totalDays)).join('')}
                             </div>
                         </div>
                     `;
@@ -3585,7 +3306,7 @@
         window.addEventListener('load', init);
         
         // ── App version (must match sw.js BUILD_DATE) ───────────────────────
-        const APP_VERSION = '2026-02-26-v2';
+        const APP_VERSION = '2026-02-26-v4';
 
         // ── Detect new SW version and prompt user to refresh ────────────────
         if ('serviceWorker' in navigator) {
