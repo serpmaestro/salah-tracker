@@ -1079,6 +1079,8 @@
         </style>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- Google Identity Services -->
+    <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
     <div class="container">
@@ -1216,6 +1218,17 @@
             <button class="btn" onclick="showReports()" style="margin-top: 20px;">
                 📊 View Reports
             </button>
+
+            <!-- Google Drive Sync Bar -->
+            <div class="gdrive-bar" id="gdrivebar">
+                <div class="gdrive-status">
+                    <div class="gdrive-dot" id="gdriveDot"></div>
+                    <span id="gdriveStatusText">Not connected to Google Drive</span>
+                </div>
+                <button class="gdrive-btn" id="gdriveBtn" onclick="handleGDriveBtn()">
+                    Connect Drive
+                </button>
+            </div>
             
             <div class="export-buttons">
                 <button class="btn-export" onclick="exportBackup()">💾 Backup</button>
@@ -1807,41 +1820,29 @@
                 return { prayer: p, start, end };
             });
 
-            // Find which prayer window we're currently in
-            const currentIdx = schedule.findIndex(s => now >= s.start && now <= s.end);
+            let current = schedule.find(s => now >= s.start && now <= s.end);
             let label = '';
             let remainingMs = 0;
             let showPrayer = '';
 
-            // Tomorrow's Fajr (used for Isha remaining + after-Isha)
-            const tomorrow = new Date(todayBase);
-            tomorrow.setDate(tomorrow.getDate() + 1);
-            const fajrTomorrow = parseTimeOnDate(prayerTimes.Fajr.start, tomorrow);
-
-            if (currentIdx !== -1) {
-                // We are inside a prayer window — show time until NEXT prayer starts
-                showPrayer = schedule[currentIdx].prayer;
-                const nextIdx = currentIdx + 1;
-                if (nextIdx < schedule.length) {
-                    // Time until next prayer (e.g. Fajr→Dhuhr, Maghrib→Isha)
-                    label = `Time Until ${schedule[nextIdx].prayer}`;
-                    remainingMs = schedule[nextIdx].start - now;
-                } else {
-                    // Isha — time until tomorrow Fajr
-                    label = 'Time Until Fajr';
-                    remainingMs = fajrTomorrow - now;
-                }
+            if (current) {
+                showPrayer = current.prayer;
+                label = `Remaining Time of ${current.prayer}`;
+                remainingMs = current.end - now;
             } else {
-                // Between prayers — show time until next prayer starts
+                // Next prayer
                 const next = schedule.find(s => now < s.start);
                 if (next) {
                     showPrayer = next.prayer;
                     label = `Time Until ${next.prayer}`;
                     remainingMs = next.start - now;
                 } else {
-                    // After Isha ended — time until tomorrow Fajr
+                    // After Isha -> next is tomorrow Fajr
                     showPrayer = 'Fajr';
                     label = 'Time Until Fajr';
+                    const tomorrow = new Date(todayBase);
+                    tomorrow.setDate(tomorrow.getDate() + 1);
+                    const fajrTomorrow = parseTimeOnDate(prayerTimes.Fajr.start, tomorrow);
                     remainingMs = fajrTomorrow - now;
                 }
             }
@@ -1942,6 +1943,300 @@
 
 
         // Initialize
+
+        // ══════════════════════════════════════════════════════════════════════
+        //  GOOGLE DRIVE SYNC
+        //  • Data saved as "qaza-tracker-backup.json" in user's Google Drive
+        //  • Auto-syncs every saveData() call when connected
+        //  • On first connect, merges Drive data with local (keeps newer)
+        //  • TOKEN stored in localStorage — survives browser cache clears
+        //    (tokens do expire after 1hr but refresh silently on next open)
+        // ══════════════════════════════════════════════════════════════════════
+
+        // ← REPLACE THIS with your Google Cloud OAuth Client ID
+        const GDRIVE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID_HERE.apps.googleusercontent.com';
+
+        const GDRIVE_SCOPE     = 'https://www.googleapis.com/auth/drive.file';
+        const GDRIVE_FILE_NAME = 'qaza-tracker-backup.json';
+
+        let gdriveToken      = localStorage.getItem('gdriveToken')      || null;
+        let gdriveTokenExp   = localStorage.getItem('gdriveTokenExp')   || 0;
+        let gdriveFileId     = localStorage.getItem('gdriveFileId')     || null;
+        let gdriveUserEmail  = localStorage.getItem('gdriveUserEmail')  || null;
+        let gdriveSyncing    = false;
+
+        // ── UI helpers ────────────────────────────────────────────────────────
+        function updateDriveUI() {
+            const dot  = document.getElementById('gdriveDot');
+            const txt  = document.getElementById('gdriveStatusText');
+            const btn  = document.getElementById('gdriveBtn');
+            if (!dot) return;
+
+            if (gdriveSyncing) {
+                dot.className  = 'gdrive-dot syncing';
+                txt.textContent = 'Syncing to Google Drive…';
+                btn.textContent = '⟳';
+                btn.disabled = true;
+            } else if (gdriveToken && Date.now() < gdriveTokenExp) {
+                dot.className  = 'gdrive-dot connected';
+                txt.textContent = gdriveUserEmail ? `Drive: ${gdriveUserEmail}` : 'Google Drive connected ✓';
+                btn.textContent = 'Disconnect';
+                btn.className  = 'gdrive-btn disconnect';
+                btn.disabled = false;
+            } else {
+                dot.className  = 'gdrive-dot';
+                txt.textContent = 'Not connected to Google Drive';
+                btn.textContent = 'Connect Drive';
+                btn.className  = 'gdrive-btn';
+                btn.disabled = false;
+            }
+        }
+
+        function setDriveError(msg) {
+            const dot = document.getElementById('gdriveDot');
+            const txt = document.getElementById('gdriveStatusText');
+            if (dot) dot.className = 'gdrive-dot error';
+            if (txt) txt.textContent = msg;
+            const btn = document.getElementById('gdriveBtn');
+            if (btn) { btn.textContent = 'Retry'; btn.className = 'gdrive-btn'; btn.disabled = false; }
+        }
+
+        // ── Auth ──────────────────────────────────────────────────────────────
+        function handleGDriveBtn() {
+            if (gdriveToken && Date.now() < gdriveTokenExp) {
+                disconnectDrive();
+            } else {
+                connectDrive();
+            }
+        }
+
+        function connectDrive() {
+            if (!GDRIVE_CLIENT_ID || GDRIVE_CLIENT_ID.includes('YOUR_GOOGLE')) {
+                alert('⚠️ Google Drive not configured yet.\n\nOpen index.html, find GDRIVE_CLIENT_ID and replace it with your Google Cloud OAuth Client ID.\n\nSee the setup guide for instructions.');
+                return;
+            }
+            const client = google.accounts.oauth2.initTokenClient({
+                client_id: GDRIVE_CLIENT_ID,
+                scope: GDRIVE_SCOPE,
+                callback: async (resp) => {
+                    if (resp.error) {
+                        setDriveError('Sign-in failed: ' + resp.error);
+                        return;
+                    }
+                    gdriveToken    = resp.access_token;
+                    gdriveTokenExp = Date.now() + (resp.expires_in * 1000);
+                    localStorage.setItem('gdriveToken',    gdriveToken);
+                    localStorage.setItem('gdriveTokenExp', gdriveTokenExp);
+
+                    // Get user email
+                    try {
+                        const info = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                            headers: { Authorization: 'Bearer ' + gdriveToken }
+                        });
+                        const u = await info.json();
+                        gdriveUserEmail = u.email || '';
+                        localStorage.setItem('gdriveUserEmail', gdriveUserEmail);
+                    } catch(e) {}
+
+                    updateDriveUI();
+
+                    // On first connect: load from Drive (restores data if localStorage was cleared)
+                    await loadFromDrive(true);
+                }
+            });
+            client.requestAccessToken({ prompt: 'consent' });
+        }
+
+        function disconnectDrive() {
+            if (!confirm('Disconnect Google Drive?\n\nYour local prayer data stays on this device.')) return;
+            gdriveToken     = null;
+            gdriveTokenExp  = 0;
+            gdriveFileId    = null;
+            gdriveUserEmail = null;
+            localStorage.removeItem('gdriveToken');
+            localStorage.removeItem('gdriveTokenExp');
+            localStorage.removeItem('gdriveFileId');
+            localStorage.removeItem('gdriveUserEmail');
+            updateDriveUI();
+        }
+
+        // ── Drive file operations ──────────────────────────────────────────────
+        async function findDriveFile() {
+            const res = await fetch(
+                `https://www.googleapis.com/drive/v3/files?q=name='${GDRIVE_FILE_NAME}' and trashed=false&fields=files(id,modifiedTime)`,
+                { headers: { Authorization: 'Bearer ' + gdriveToken } }
+            );
+            const data = await res.json();
+            if (data.files && data.files.length > 0) {
+                gdriveFileId = data.files[0].id;
+                localStorage.setItem('gdriveFileId', gdriveFileId);
+                return data.files[0];
+            }
+            return null;
+        }
+
+        async function saveToDrive() {
+            if (!gdriveToken || Date.now() >= gdriveTokenExp) return;
+            if (gdriveSyncing) return;
+
+            gdriveSyncing = true;
+            updateDriveUI();
+
+            try {
+                const payload = JSON.stringify({ profiles, prayerLogs, version: '2.0', savedAt: new Date().toISOString() });
+                const blob    = new Blob([payload], { type: 'application/json' });
+
+                if (!gdriveFileId) await findDriveFile();
+
+                if (gdriveFileId) {
+                    // Update existing file
+                    await fetch(`https://www.googleapis.com/upload/drive/v3/files/${gdriveFileId}?uploadType=media`, {
+                        method: 'PATCH',
+                        headers: { Authorization: 'Bearer ' + gdriveToken, 'Content-Type': 'application/json' },
+                        body: blob
+                    });
+                } else {
+                    // Create new file
+                    const meta   = new Blob([JSON.stringify({ name: GDRIVE_FILE_NAME, mimeType: 'application/json' })], { type: 'application/json' });
+                    const form   = new FormData();
+                    form.append('metadata', meta);
+                    form.append('file', blob);
+                    const res = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+                        method: 'POST',
+                        headers: { Authorization: 'Bearer ' + gdriveToken },
+                        body: form
+                    });
+                    const data = await res.json();
+                    gdriveFileId = data.id;
+                    localStorage.setItem('gdriveFileId', gdriveFileId);
+                }
+            } catch(e) {
+                console.warn('Drive save failed:', e);
+                setDriveError('Sync failed — will retry');
+            }
+
+            gdriveSyncing = false;
+            updateDriveUI();
+        }
+
+        async function loadFromDrive(isFirstConnect = false) {
+            if (!gdriveToken || Date.now() >= gdriveTokenExp) return;
+
+            gdriveSyncing = true;
+            updateDriveUI();
+
+            try {
+                const file = await findDriveFile();
+                if (!file) {
+                    // No file yet — push local data to Drive
+                    gdriveSyncing = false;
+                    await saveToDrive();
+                    return;
+                }
+
+                // Download the file content
+                const res  = await fetch(`https://www.googleapis.com/drive/v3/files/${gdriveFileId}?alt=media`, {
+                    headers: { Authorization: 'Bearer ' + gdriveToken }
+                });
+                const data = await res.json();
+
+                if (data.profiles) {
+                    if (isFirstConnect && profiles.length > 0) {
+                        // Merge: Drive wins on conflict (it's the cloud backup)
+                        const merged = mergeData(
+                            { profiles, prayerLogs },
+                            { profiles: data.profiles, prayerLogs: data.prayerLogs || {} }
+                        );
+                        profiles   = merged.profiles;
+                        prayerLogs = merged.prayerLogs;
+                        saveData();
+                        renderProfiles();
+                        alert(`✅ Google Drive connected!\n\nYour data has been merged with the cloud backup.\n\nProfiles: ${profiles.length}`);
+                    } else if (profiles.length === 0) {
+                        // Local is empty — fully restore from Drive
+                        profiles   = data.profiles || [];
+                        prayerLogs = data.prayerLogs || {};
+                        saveData();
+                        renderProfiles();
+                        alert(`✅ Data restored from Google Drive!\n\nProfiles: ${profiles.length}`);
+                    } else {
+                        alert('✅ Google Drive connected! Auto-sync is now active.');
+                    }
+                }
+            } catch(e) {
+                console.warn('Drive load failed:', e);
+                setDriveError('Could not load from Drive');
+            }
+
+            gdriveSyncing = false;
+            updateDriveUI();
+        }
+
+        // ── Merge two datasets (keeps all profiles, merges logs by date) ──────
+        function mergeData(local, cloud) {
+            // Merge profiles: cloud wins if same ID
+            const merged = { profiles: [...cloud.profiles], prayerLogs: {} };
+
+            // Add any local profiles not in cloud
+            local.profiles.forEach(lp => {
+                if (!merged.profiles.find(cp => cp.id === lp.id)) {
+                    merged.profiles.push(lp);
+                }
+            });
+
+            // Merge prayer logs: cloud wins per-day per-prayer
+            const allIds = new Set([
+                ...Object.keys(local.prayerLogs || {}),
+                ...Object.keys(cloud.prayerLogs || {})
+            ]);
+
+            allIds.forEach(profileId => {
+                merged.prayerLogs[profileId] = {};
+                const localDays = (local.prayerLogs  || {})[profileId] || {};
+                const cloudDays = (cloud.prayerLogs || {})[profileId] || {};
+                const allDates  = new Set([...Object.keys(localDays), ...Object.keys(cloudDays)]);
+                allDates.forEach(date => {
+                    merged.prayerLogs[profileId][date] = { ...(localDays[date] || {}), ...(cloudDays[date] || {}) };
+                });
+            });
+
+            return merged;
+        }
+
+        // ── Silent token refresh on app open ──────────────────────────────────
+        async function tryTokenRefresh() {
+            if (!GDRIVE_CLIENT_ID || GDRIVE_CLIENT_ID.includes('YOUR_GOOGLE')) return;
+            if (!localStorage.getItem('gdriveToken')) return;
+
+            // Token still valid
+            if (Date.now() < gdriveTokenExp - 60000) {
+                updateDriveUI();
+                return;
+            }
+
+            // Try silent refresh (no popup)
+            try {
+                const client = google.accounts.oauth2.initTokenClient({
+                    client_id: GDRIVE_CLIENT_ID,
+                    scope: GDRIVE_SCOPE,
+                    prompt: '',
+                    callback: (resp) => {
+                        if (!resp.error) {
+                            gdriveToken    = resp.access_token;
+                            gdriveTokenExp = Date.now() + (resp.expires_in * 1000);
+                            localStorage.setItem('gdriveToken',    gdriveToken);
+                            localStorage.setItem('gdriveTokenExp', gdriveTokenExp);
+                        }
+                        updateDriveUI();
+                    }
+                });
+                client.requestAccessToken({ prompt: '' });
+            } catch(e) {
+                gdriveToken = null;
+                updateDriveUI();
+            }
+        }
+
         function init() {
             loadData();
             restoreState();
@@ -1950,6 +2245,9 @@
             setupManifest();
             checkInstallPrompt();
             updateCalendarIcon(currentViewingDate);
+            // Google Drive: restore UI state + try silent token refresh
+            updateDriveUI();
+            setTimeout(tryTokenRefresh, 1500);
             
             // Auto-check missed prayers
             setInterval(checkMissedPrayers, 60000); // Check every minute
@@ -2120,6 +2418,10 @@
                 prayerLogs,
                 version: '2.0'
             }));
+            // Auto-sync to Google Drive if connected
+            if (gdriveToken && Date.now() < gdriveTokenExp) {
+                saveToDrive();
+            }
         }
 
         function renderProfiles() {
@@ -3283,7 +3585,7 @@
         window.addEventListener('load', init);
         
         // ── App version (must match sw.js BUILD_DATE) ───────────────────────
-        const APP_VERSION = '2026-02-19-v2';
+        const APP_VERSION = '2026-02-26-v2';
 
         // ── Detect new SW version and prompt user to refresh ────────────────
         if ('serviceWorker' in navigator) {
