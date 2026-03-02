@@ -453,61 +453,68 @@
             align-items: center;
         }
         
+        /* ── Qaza summary — fully vw-based so system font size never breaks layout ── */
         .qaza-summary {
             display: grid;
-            /* Responsive: wraps to multiple rows on small phones so Isha never cuts */
-            grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
-            gap: 8px;
+            grid-template-columns: repeat(5, 1fr);
+            gap: 2vw;
             margin-top: 12px;
         }
-        
+
         .qaza-item {
             text-align: center;
-            padding: 12px 8px;
+            padding: 2vw 1vw;
             background: var(--bg-card);
-            border-radius: 12px;
+            border-radius: 2.5vw;
             position: relative;
+            min-width: 0;
+            overflow: hidden;
         }
-        
+
         .qaza-item .name {
-            font-size: 0.75rem;
+            font-size: 3vw;
             color: var(--text-secondary);
-            margin-bottom: 4px;
+            margin-bottom: 1vw;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
-        
+
         .qaza-item .count {
-            font-size: 1.1rem;
-            font-weight: 700;
+            font-size: 4.5vw;
+            font-weight: 800;
             color: var(--accent-gold);
-            margin-bottom: 8px;
+            margin-bottom: 1.5vw;
+            line-height: 1.1;
+            word-break: break-all;
         }
-        
+
         .qaza-item .controls {
             display: flex;
-            gap: 4px;
+            gap: 1vw;
             justify-content: center;
         }
-        
+
         .qaza-control-btn {
-            width: 24px;
-            height: 24px;
-            border-radius: 6px;
+            width: 6.5vw;
+            height: 6.5vw;
+            border-radius: 1.5vw;
             border: none;
             background: var(--bg-secondary);
             color: var(--text-primary);
-            font-size: 1rem;
+            font-size: 4vw;
             font-weight: 700;
             cursor: pointer;
             transition: all 0.2s ease;
             display: flex;
             align-items: center;
             justify-content: center;
+            flex-shrink: 0;
         }
-        
+
         .qaza-control-btn:hover {
             background: var(--accent-primary);
             color: white;
-            transform: scale(1.1);
         }
         
         .prayer-tracker-list {
@@ -1056,9 +1063,7 @@
                 font-size: 0.8rem;
             }
             
-            .qaza-summary {
-                grid-template-columns: repeat(5, 1fr);
-            }
+            /* qaza-summary already 5-col vw-based above */
             
             .prayer-actions {
                 grid-template-columns: 1fr;
@@ -2087,46 +2092,27 @@
 
         // Profile Management
         function loadData() {
-            try {
-                const saved = localStorage.getItem('qazaTrackerData');
-                if (saved) {
-                    const data = JSON.parse(saved);
-                    // Safety: only load if data looks valid — never overwrite good data with empty
-                    if (Array.isArray(data.profiles)) {
-                        profiles   = data.profiles;
-                        prayerLogs = data.prayerLogs || {};
-                    }
-                }
-            } catch(e) {
-                console.warn('loadData error:', e);
-                // Keep whatever was in memory — do not wipe
+            const saved = localStorage.getItem('qazaTrackerData');
+            if (saved) {
+                const data = JSON.parse(saved);
+                profiles = data.profiles || [];
+                prayerLogs = data.prayerLogs || {};
             }
 
-            // Backward compatibility
+            // Backward compatibility for older saves
             profiles.forEach(p => {
                 if (typeof p.hijriOffsetDays !== 'number') p.hijriOffsetDays = 0;
                 if (!p.createdAt) p.createdAt = new Date().toISOString();
                 if (!p.prayerAdjustments) p.prayerAdjustments = { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 };
-                if (!p.qazaCount) p.qazaCount = { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 };
-                // Ensure all prayer keys exist in qazaCount
-                ['Fajr','Dhuhr','Asr','Maghrib','Isha'].forEach(pr => {
-                    if (typeof p.qazaCount[pr] !== 'number') p.qazaCount[pr] = 0;
-                });
             });
         }
 
         function saveData() {
-            try {
-                // Safety: never save if profiles is not a valid array
-                if (!Array.isArray(profiles)) return;
-                localStorage.setItem('qazaTrackerData', JSON.stringify({
-                    profiles,
-                    prayerLogs,
-                    version: '2.0'
-                }));
-            } catch(e) {
-                console.warn('saveData error:', e);
-            }
+            localStorage.setItem('qazaTrackerData', JSON.stringify({
+                profiles,
+                prayerLogs,
+                version: '2.0'
+            }));
         }
 
         function renderProfiles() {
@@ -3181,15 +3167,9 @@
         }
 
         // Calendar
-        // Calendar navigation state
-        let calViewYear  = new Date().getFullYear();
-        let calViewMonth = new Date().getMonth(); // 0-11
-
         function showCalendar() {
-            // Always open on today's month
-            calViewYear  = new Date().getFullYear();
-            calViewMonth = new Date().getMonth();
-            document.getElementById('calendarModal').classList.add('active');
+            const modal = document.getElementById('calendarModal');
+            modal.classList.add('active');
             renderCalendar();
         }
 
@@ -3197,82 +3177,42 @@
             document.getElementById('calendarModal').classList.remove('active');
         }
 
-        function calNavMonth(dir) {
-            calViewMonth += dir;
-            if (calViewMonth > 11) { calViewMonth = 0;  calViewYear++; }
-            if (calViewMonth < 0)  { calViewMonth = 11; calViewYear--; }
-            renderCalendar();
-        }
-
-        function calNavYear(dir) {
-            calViewYear += dir;
-            renderCalendar();
-        }
-
-        function calGoToday() {
-            calViewYear  = new Date().getFullYear();
-            calViewMonth = new Date().getMonth();
-            renderCalendar();
-        }
-
         function renderCalendar() {
             const container = document.getElementById('calendarContainer');
-            const today     = new Date();
-            const todayStr  = toLocalYMD(today);
-            const year      = calViewYear;
-            const month     = calViewMonth;
-
-            const firstDay    = new Date(year, month, 1);
-            const daysInMonth = new Date(year, month + 1, 0).getDate();
-            const startDay    = firstDay.getDay();
-
-            const monthName = firstDay.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-            const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
-
-            let html = '';
-
-            // ── Year navigation row ──────────────────────────────────────────
-            html += `<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:6px;">
-                <button onclick="calNavYear(-1)" style="background:var(--bg-secondary);border:none;color:var(--text-primary);font-size:1.1rem;width:32px;height:32px;border-radius:8px;cursor:pointer;font-weight:700;">‹‹</button>
-                <span style="font-size:1rem;font-weight:800;color:var(--accent-primary);min-width:42px;text-align:center;">${year}</span>
-                <button onclick="calNavYear(1)"  style="background:var(--bg-secondary);border:none;color:var(--text-primary);font-size:1.1rem;width:32px;height:32px;border-radius:8px;cursor:pointer;font-weight:700;">››</button>
-            </div>`;
-
-            // ── Month navigation row ─────────────────────────────────────────
-            html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:6px;">
-                <button onclick="calNavMonth(-1)" style="background:var(--bg-secondary);border:none;color:var(--text-primary);font-size:1.2rem;width:36px;height:36px;border-radius:8px;cursor:pointer;font-weight:700;">‹</button>
-                <div style="text-align:center;flex:1;">
-                    <div style="font-size:1.05rem;font-weight:700;color:var(--text-primary);">${monthName}</div>
-                </div>
-                <button onclick="calNavMonth(1)"  style="background:var(--bg-secondary);border:none;color:var(--text-primary);font-size:1.2rem;width:36px;height:36px;border-radius:8px;cursor:pointer;font-weight:700;">›</button>
-            </div>`;
-
-            // ── Day grid ─────────────────────────────────────────────────────
-            html += '<div class="calendar-grid">';
-            ['S','M','T','W','T','F','S'].forEach(d => {
-                html += `<div style="font-weight:600;color:var(--text-secondary);font-size:0.8rem;">${d}</div>`;
-            });
-
-            for (let i = 0; i < startDay; i++) html += '<div></div>';
-
-            for (let day = 1; day <= daysInMonth; day++) {
-                const date    = new Date(year, month, day);
-                const dateStr = toLocalYMD(date);
-                const isToday = dateStr === todayStr;
-                const profileId = profiles[currentProfile]?.id;
-                const hasData   = profileId && prayerLogs[profileId]?.[dateStr];
-                html += `<div class="calendar-day ${isToday ? 'today' : ''} ${hasData ? 'has-data' : ''}"
-                             onclick="selectDate('${dateStr}')">${day}</div>`;
-            }
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = today.getMonth();
+            
+            const firstDay = new Date(year, month, 1);
+            const lastDay = new Date(year, month + 1, 0);
+            const daysInMonth = lastDay.getDate();
+            const startDay = firstDay.getDay();
+            
+            let html = '<div style="text-align: center; margin-bottom: 16px; font-size: 1.2rem; font-weight: 600;">';
+            html += today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
             html += '</div>';
-
-            // ── Today button ─────────────────────────────────────────────────
-            if (!isCurrentMonth) {
-                html += `<div style="text-align:center;margin-top:12px;">
-                    <button onclick="calGoToday()" style="background:var(--accent-primary);border:none;color:white;padding:7px 20px;border-radius:8px;font-size:0.85rem;font-weight:700;cursor:pointer;">Today</button>
-                </div>`;
+            
+            html += '<div class="calendar-grid">';
+            ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(day => {
+                html += `<div style="font-weight: 600; color: var(--text-secondary);">${day}</div>`;
+            });
+            
+            for (let i = 0; i < startDay; i++) {
+                html += '<div></div>';
             }
-
+            
+            for (let day = 1; day <= daysInMonth; day++) {
+                const date = new Date(year, month, day);
+                const dateStr = toLocalYMD(date);
+                const isToday = day === today.getDate();
+                const profileId = profiles[currentProfile]?.id;
+                const hasData = profileId && prayerLogs[profileId] && prayerLogs[profileId][dateStr];
+                
+                html += `<div class="calendar-day ${isToday ? 'today' : ''} ${hasData ? 'has-data' : ''}" 
+                         onclick="selectDate('${dateStr}')">${day}</div>`;
+            }
+            
+            html += '</div>';
             container.innerHTML = html;
         }
 
@@ -3336,7 +3276,7 @@
         window.addEventListener('load', init);
         
         // ── App version (must match sw.js BUILD_DATE) ───────────────────────
-        const APP_VERSION = '2026-03-02-v1';
+        const APP_VERSION = '2026-03-02-v2';
 
         // ── Detect new SW version and prompt user to refresh ────────────────
         if ('serviceWorker' in navigator) {
