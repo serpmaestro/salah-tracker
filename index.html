@@ -310,37 +310,42 @@
             border-radius: 12px;
         }
         
-        .result-grid { display: grid; gap: 10px; margin: 20px 0; }
-
+        .result-grid {
+            display: grid;
+            gap: 16px;
+            margin: 24px 0;
+        }
+        
         .result-item {
             background: var(--bg-card);
-            padding: 0;
+            padding: 20px;
             border-radius: 16px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
             border: 1px solid var(--border);
-            overflow: hidden;
-            transition: background 0.2s;
+            transition: all 0.2s ease;
         }
-        .result-item:hover { background: var(--bg-secondary); }
-        .result-item .prayer-name { font-size: 1rem; font-weight: 800; color: var(--text-primary); }
+        
+        .result-item:hover {
+            background: var(--bg-secondary);
+            transform: translateX(4px);
+        }
+        
+        .result-item .prayer-name {
+            font-size: 1.1rem;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
         .result-item .prayer-count {
-            font-size: 1.6rem; font-weight: 700; color: var(--accent-primary);
-            display: flex; align-items: center; gap: 12px;
+            font-size: 1.6rem;
+            font-weight: 700;
+            color: var(--accent-primary);
+            display: flex;
+            align-items: center;
+            gap: 12px;
         }
-        .report-card-header {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 14px 18px 10px; border-bottom: 1px solid var(--border);
-        }
-        .report-stat-row { display: flex; gap: 8px; padding: 12px 18px 14px; }
-        .report-stat-pill {
-            flex: 1; text-align: center; padding: 8px 4px;
-            border-radius: 10px; font-size: 0.78rem; font-weight: 700;
-        }
-        .report-stat-pill .pill-val { font-size: 1.05rem; font-weight: 800; display: block; margin-bottom: 2px; }
-        .pill-done { background: rgba(16,185,129,0.12); color: #10b981; }
-        .pill-qaza { background: rgba(245,158,11,0.12);  color: #f59e0b; }
-        .pill-miss { background: rgba(239,68,68,0.12);   color: #ef4444; }
-        .pill-none { background: rgba(148,163,184,0.1);  color: #94a3b8; }
-        .daily-status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px; border-radius: 20px; font-size: 0.85rem; font-weight: 700; }
         
         .plus-minus-btns {
             display: flex;
@@ -1933,14 +1938,9 @@
             setupManifest();
             checkInstallPrompt();
             updateCalendarIcon(currentViewingDate);
-
-            // Mark ALL past unlogged prayers as missed on every app open
-            markAllPastMissed();
-            // Also run immediately for today's passed prayers
-            checkMissedPrayers();
-
-            // Auto-check missed prayers every minute
-            setInterval(checkMissedPrayers, 60000);
+            
+            // Auto-check missed prayers
+            setInterval(checkMissedPrayers, 60000); // Check every minute
 
             // Update home prayer card timer (remaining time + clock)
             setInterval(() => {
@@ -2042,7 +2042,6 @@
             saveState();
             
             if (screenId === 'trackerScreen') {
-                markAllPastMissed(); // catch any missed from days not opened
                 updateTracker();
             } else if (screenId === 'reportsScreen') {
                 generateReport();
@@ -2088,27 +2087,46 @@
 
         // Profile Management
         function loadData() {
-            const saved = localStorage.getItem('qazaTrackerData');
-            if (saved) {
-                const data = JSON.parse(saved);
-                profiles = data.profiles || [];
-                prayerLogs = data.prayerLogs || {};
+            try {
+                const saved = localStorage.getItem('qazaTrackerData');
+                if (saved) {
+                    const data = JSON.parse(saved);
+                    // Safety: only load if data looks valid — never overwrite good data with empty
+                    if (Array.isArray(data.profiles)) {
+                        profiles   = data.profiles;
+                        prayerLogs = data.prayerLogs || {};
+                    }
+                }
+            } catch(e) {
+                console.warn('loadData error:', e);
+                // Keep whatever was in memory — do not wipe
             }
 
-            // Backward compatibility for older saves
+            // Backward compatibility
             profiles.forEach(p => {
                 if (typeof p.hijriOffsetDays !== 'number') p.hijriOffsetDays = 0;
                 if (!p.createdAt) p.createdAt = new Date().toISOString();
                 if (!p.prayerAdjustments) p.prayerAdjustments = { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 };
+                if (!p.qazaCount) p.qazaCount = { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 };
+                // Ensure all prayer keys exist in qazaCount
+                ['Fajr','Dhuhr','Asr','Maghrib','Isha'].forEach(pr => {
+                    if (typeof p.qazaCount[pr] !== 'number') p.qazaCount[pr] = 0;
+                });
             });
         }
 
         function saveData() {
-            localStorage.setItem('qazaTrackerData', JSON.stringify({
-                profiles,
-                prayerLogs,
-                version: '2.0'
-            }));
+            try {
+                // Safety: never save if profiles is not a valid array
+                if (!Array.isArray(profiles)) return;
+                localStorage.setItem('qazaTrackerData', JSON.stringify({
+                    profiles,
+                    prayerLogs,
+                    version: '2.0'
+                }));
+            } catch(e) {
+                console.warn('saveData error:', e);
+            }
         }
 
         function renderProfiles() {
@@ -2517,23 +2535,11 @@
             listEl.innerHTML = prayers.map(prayer => {
                 const status = dayLogs[prayer] || 'none';
                 const times = prayerTimes[prayer];
-
-                // A prayer is "past" when the NEXT prayer's start time arrives.
-                // Isha is never auto-missed on today's view — only after midnight (next day open).
-                let isPastTime = false;
-                if (!isToday) {
-                    isPastTime = true;
-                } else {
-                    const prayerIdx = prayers.indexOf(prayer);
-                    if (prayerIdx < prayers.length - 1) {
-                        const nextStart = parseTimeOnDate(prayerTimes[prayers[prayerIdx + 1]].start, now);
-                        isPastTime = now > nextStart;
-                    } else {
-                        isPastTime = false; // Isha: never auto-miss on today's view
-                    }
-                }
-
+                const endTime = parseTime(times.end);
+                const isPastTime = isToday && now > endTime;
                 const isAutoMissed = isPastTime && status === 'none';
+                
+                // Auto-mark as missed if time passed and no action taken
                 if (isAutoMissed) {
                     dayLogs[prayer] = 'missed';
                     profiles[currentProfile].qazaCount[prayer]++;
@@ -2629,91 +2635,30 @@
         }
 
         // Auto-check missed prayers
-        // ── Run once on app open: mark ALL past-date unlogged prayers as missed ──
-        // This catches any day the app was not opened (vacation, phone off, etc.)
-        function markAllPastMissed() {
-            if (currentProfile === null) return;
-
-            const now     = new Date();
-            const today   = toLocalYMD(now);
-            const profileId = profiles[currentProfile].id;
-
-            if (!prayerLogs[profileId]) prayerLogs[profileId] = {};
-
-            // Find the earliest date we should check from:
-            // profile creation date or 60 days ago (whichever is more recent)
-            const profile   = profiles[currentProfile];
-            const created   = new Date(profile.createdAt || now);
-            const cutoff    = new Date(now);
-            cutoff.setDate(cutoff.getDate() - 60);
-            const startFrom = created > cutoff ? created : cutoff;
-
-            let changed = false;
-            const cursor = new Date(startFrom);
-            cursor.setHours(12, 0, 0, 0);
-
-            while (toLocalYMD(cursor) < today) {
-                const dateStr = toLocalYMD(cursor);
-                if (!prayerLogs[profileId][dateStr]) {
-                    prayerLogs[profileId][dateStr] = {};
-                }
-                const dayLogs = prayerLogs[profileId][dateStr];
-
-                prayers.forEach(prayer => {
-                    const status = dayLogs[prayer];
-                    if (!status || status === 'none') {
-                        dayLogs[prayer] = 'missed';
-                        profiles[currentProfile].qazaCount[prayer]++;
-                        changed = true;
-                    }
-                });
-
-                cursor.setDate(cursor.getDate() + 1);
-            }
-
-            if (changed) saveData();
-        }
-
-        // ── Runs every 60s: marks today's passed prayers + Isha check ──────────
         function checkMissedPrayers() {
             if (currentProfile === null) return;
-
-            const now       = new Date();
-            const today     = toLocalYMD(now);
+            
+            const now = new Date();
+            const today = now.toISOString().split('T')[0];
             const profileId = profiles[currentProfile].id;
-
+            
             if (!prayerLogs[profileId]) prayerLogs[profileId] = {};
             if (!prayerLogs[profileId][today]) prayerLogs[profileId][today] = {};
-
-            // Yesterday: mark ALL unlogged prayers missed (catches Isha + any missed)
-            const yd = new Date(now);
-            yd.setDate(yd.getDate() - 1);
-            const yesterday = toLocalYMD(yd);
-            if (!prayerLogs[profileId][yesterday]) prayerLogs[profileId][yesterday] = {};
+            
+            const todayLogs = prayerLogs[profileId][today];
+            
             prayers.forEach(prayer => {
-                const s = prayerLogs[profileId][yesterday][prayer];
-                if (!s || s === 'none') {
-                    prayerLogs[profileId][yesterday][prayer] = 'missed';
+                const times = prayerTimes[prayer];
+                const endTime = parseTime(times.end);
+                const currentStatus = todayLogs[prayer] || 'none';
+                
+                if (now > endTime && currentStatus === 'none') {
+                    // Time passed and no action taken
+                    todayLogs[prayer] = 'missed';
                     profiles[currentProfile].qazaCount[prayer]++;
                 }
             });
-
-            // Today: mark missed when next prayer's start has arrived
-            const todayLogs = prayerLogs[profileId][today];
-            prayers.forEach(prayer => {
-                const currentStatus = todayLogs[prayer] || 'none';
-                if (currentStatus !== 'none') return;
-                const prayerIdx = prayers.indexOf(prayer);
-                if (prayerIdx < prayers.length - 1) {
-                    const nextStart = parseTimeOnDate(prayerTimes[prayers[prayerIdx + 1]].start, now);
-                    if (now > nextStart) {
-                        todayLogs[prayer] = 'missed';
-                        profiles[currentProfile].qazaCount[prayer]++;
-                    }
-                }
-                // Isha: never auto-missed on today's view — handled by yesterday check
-            });
-
+            
             saveData();
             if (document.querySelector('.screen.active')?.id === 'trackerScreen') {
                 updateTracker();
@@ -2762,41 +2707,44 @@
         }
         
         function generateDailyReport(logs, content) {
-            const today = toLocalYMD(new Date());
+            const profile = profiles[currentProfile];
+            const today = new Date().toISOString().split('T')[0];
             const todayLogs = logs[today] || {};
             const todayFormatted = formatDate(today);
-            const statusMeta = {
-                done:   { label: 'On-time ✓',       cls: 'pill-done' },
-                both:   { label: 'Done + Qaza ✓🕌', cls: 'pill-done' },
-                qaza:   { label: 'Qaza Done 🕌',     cls: 'pill-qaza' },
-                missed: { label: 'Missed ✗',         cls: 'pill-miss' },
-                none:   { label: 'Not recorded',      cls: 'pill-none' }
-            };
-            const doneCount   = prayers.filter(p => ['done','both'].includes(todayLogs[p])).length;
-            const missedCount = prayers.filter(p => todayLogs[p] === 'missed').length;
+            
             content.innerHTML = `
-                <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
-                    <div>
-                        <div style="font-size:1.15rem;font-weight:800;color:var(--text-primary);">Today's Report</div>
-                        <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:2px;">${todayFormatted}</div>
-                    </div>
-                    <div style="display:flex;gap:8px;">
-                        <span style="background:rgba(16,185,129,0.12);color:#10b981;padding:6px 12px;border-radius:20px;font-size:0.8rem;font-weight:700;">${doneCount} ✓</span>
-                        <span style="background:rgba(239,68,68,0.12);color:#ef4444;padding:6px 12px;border-radius:20px;font-size:0.8rem;font-weight:700;">${missedCount} ✗</span>
-                    </div>
-                </div>
+                <h3 style="margin-bottom: 12px; color: var(--accent-primary);">Today's Prayer Report</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.9rem;">
+                    ${todayFormatted}
+                </p>
                 <div class="result-grid">
                     ${prayers.map(prayer => {
                         const status = todayLogs[prayer] || 'none';
-                        const meta = statusMeta[status] || statusMeta.none;
-                        const time = prayerTimes[prayer] ? prayerTimes[prayer].start : '';
+                        let statusText = 'Not Prayed';
+                        let statusColor = 'var(--text-muted)';
+                        
+                        if (status === 'done') {
+                            statusText = 'Done On-time ✓';
+                            statusColor = 'var(--accent-primary)';
+                        } else if (status === 'both') {
+                            statusText = 'Done + Qaza Done ✓🕌';
+                            statusColor = 'var(--accent-primary)';
+                        } else if (status === 'qaza') {
+                            statusText = 'Qaza Done 🕌';
+                            statusColor = 'var(--accent-gold)';
+                        } else if (status === 'missed') {
+                            statusText = 'Missed ✗';
+                            statusColor = '#ef4444';
+                        }
+                        
                         return `
                             <div class="result-item">
-                                <div class="report-card-header">
+                                <div style="flex: 1;">
                                     <div class="prayer-name">${prayer}</div>
-                                    <span class="daily-status-badge ${meta.cls}" style="font-size:0.8rem;padding:5px 12px;border-radius:20px;">${meta.label}</span>
+                                    <div style="font-size: 0.9rem; margin-top: 8px; color: ${statusColor}; font-weight: 600;">
+                                        ${statusText}
+                                    </div>
                                 </div>
-                                ${time ? `<div style="padding:6px 18px 10px;font-size:0.78rem;color:var(--text-muted);">⏰ ${time}</div>` : ''}
                             </div>
                         `;
                     }).join('')}
@@ -2804,44 +2752,36 @@
             `;
         }
 
-        function renderStatCard(prayer, s, total) {
-            const onP = total > 0 ? Math.round((s.onTime   / total) * 100) : 0;
-            const qP  = total > 0 ? Math.round((s.qazaDone / total) * 100) : 0;
-            const mP  = total > 0 ? Math.round((s.missed   / total) * 100) : 0;
-            return `
-                <div class="result-item">
-                    <div class="report-card-header">
-                        <div class="prayer-name">${prayer}</div>
-                        <div style="font-size:0.75rem;color:var(--text-muted);">${total} days</div>
-                    </div>
-                    <div style="padding:4px 18px 2px;">
-                        <div style="height:4px;background:var(--border);border-radius:4px;overflow:hidden;">
-                            <div style="height:100%;width:${Math.max(onP,1)}%;background:linear-gradient(90deg,#10b981,#059669);border-radius:4px;"></div>
-                        </div>
-                    </div>
-                    <div class="report-stat-row">
-                        <div class="report-stat-pill pill-done"><span class="pill-val">${onP}%</span>✓ ${s.onTime}</div>
-                        <div class="report-stat-pill pill-qaza"><span class="pill-val">${qP}%</span>🕌 ${s.qazaDone}</div>
-                        <div class="report-stat-pill pill-miss"><span class="pill-val">${mP}%</span>✗ ${s.missed}</div>
-                    </div>
-                </div>
-            `;
-        }
-
-                function generateTotalReport(logs, content) {
+        function generateTotalReport(logs, content) {
             const profile = profiles[currentProfile];
             const stats = calculateStatsFromCreation(logs, profile.createdAt);
             const startDate = formatDate(profile.createdAt.split('T')[0]);
             const today = formatDate(new Date().toISOString().split('T')[0]);
             
-            const totalDays = stats[prayers[0]] ? (stats[prayers[0]].onTime + stats[prayers[0]].qazaDone + stats[prayers[0]].missed) : 0;
             content.innerHTML = `
-                <div style="margin-bottom:16px;">
-                    <div style="font-size:1.15rem;font-weight:800;color:var(--text-primary);">Total Statistics</div>
-                    <div style="font-size:0.82rem;color:var(--text-secondary);margin-top:2px;">Since ${startDate} (Profile Created)</div>
-                </div>
+                <h3 style="margin-bottom: 12px; color: var(--accent-primary);">Total Prayer Statistics</h3>
+                <p style="color: var(--text-secondary); margin-bottom: 20px; font-size: 0.9rem;">
+                    Since ${startDate} (Profile Created)
+                </p>
                 <div class="result-grid">
-                    ${prayers.map(prayer => renderStatCard(prayer, stats[prayer], totalDays)).join('')}
+                    ${prayers.map(prayer => {
+                        const s = stats[prayer];
+                        return `
+                            <div class="result-item">
+                                <div style="flex: 1;">
+                                    <div class="prayer-name">${prayer}</div>
+                                    <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;">
+                                        On-time: <span style="color: var(--accent-primary); font-weight: 600;">${s.onTimePercentage}%</span> |
+                                        Qaza: <span style="color: var(--accent-gold); font-weight: 600;">${s.qazaPercentage}%</span> |
+                                        Missed: <span style="color: #ef4444; font-weight: 600;">${s.missedPercentage}%</span>
+                                    </div>
+                                    <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                                        ✓ ${s.onTime} | 🕌 ${s.qazaDone} | ✗ ${s.missed}
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                    }).join('')}
                 </div>
             `;
         }
@@ -2956,7 +2896,7 @@
             const years = Object.keys(yearlyStats).sort();
             
             content.innerHTML = `
-                <div style="font-size:1.15rem;font-weight:800;color:var(--text-primary);margin-bottom:20px;">Yearly Reports</div>
+                <h3 style="margin-bottom: 20px; color: var(--accent-primary);">Yearly Reports</h3>
                 ${years.map(year => {
                     const yearStart = new Date(Math.max(startDate.getTime(), new Date(year, 0, 1).getTime()));
                     yearStart.setHours(12, 0, 0, 0);
@@ -2966,13 +2906,35 @@
                     const endFormatted = formatDate(yearEnd.toISOString().split('T')[0]);
                     
                     return `
-                        <div style="margin-bottom: 28px;">
-                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:12px 16px;background:var(--bg-card);border-radius:14px;border:1px solid var(--border);">
-                                <span style="font-size:1.2rem;font-weight:800;color:var(--accent-primary);">${year}</span>
-                                <span style="font-size:0.78rem;color:var(--text-secondary);">${startFormatted} → ${endFormatted}</span>
-                            </div>
+                        <div style="margin-bottom: 32px;">
+                            <h4 style="margin-bottom: 8px; color: var(--text-primary);">${year}</h4>
+                            <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 0.85rem;">
+                                ${startFormatted} to ${endFormatted}
+                            </p>
                             <div class="result-grid">
-                                ${prayers.map(prayer => renderStatCard(prayer, yearlyStats[year][prayer], yearlyStats[year][prayer].totalDays)).join('')}
+                                ${prayers.map(prayer => {
+                                    const s = yearlyStats[year][prayer];
+                                    const total = s.totalDays;
+                                    const onTimeP = total > 0 ? Math.round((s.onTime / total) * 100) : 0;
+                                    const qazaP = total > 0 ? Math.round((s.qazaDone / total) * 100) : 0;
+                                    const missedP = total > 0 ? Math.round((s.missed / total) * 100) : 0;
+                                    
+                                    return `
+                                        <div class="result-item">
+                                            <div style="flex: 1;">
+                                                <div class="prayer-name">${prayer}</div>
+                                                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;">
+                                                    On-time: <span style="color: var(--accent-primary); font-weight: 600;">${onTimeP}%</span> |
+                                                    Qaza: <span style="color: var(--accent-gold); font-weight: 600;">${qazaP}%</span> |
+                                                    Missed: <span style="color: #ef4444; font-weight: 600;">${missedP}%</span>
+                                                </div>
+                                                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                                                    ✓ ${s.onTime} | 🕌 ${s.qazaDone} | ✗ ${s.missed}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
                             </div>
                         </div>
                     `;
@@ -3058,7 +3020,7 @@
             const keys = Object.keys(monthlyStats).sort().reverse();
 
             content.innerHTML = `
-                <div style="font-size:1.15rem;font-weight:800;color:var(--text-primary);margin-bottom:20px;">Monthly Reports</div>
+                <h3 style="margin-bottom: 20px; color: var(--accent-primary);">Monthly Reports (from profile start)</h3>
                 ${keys.map((monthKey) => {
                     const monthData = monthlyStats[monthKey];
                     const monthName = months[monthData.monthIndex];
@@ -3067,13 +3029,35 @@
                     const endFormatted = formatDate(monthData.rangeEnd);
 
                     return `
-                        <div style="margin-bottom: 28px;">
-                            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;padding:12px 16px;background:var(--bg-card);border-radius:14px;border:1px solid var(--border);">
-                                <span style="font-size:1.1rem;font-weight:800;color:var(--accent-primary);">${monthName} ${monthData.year}</span>
-                                <span style="font-size:0.78rem;color:var(--text-secondary);">${startFormatted} → ${endFormatted}</span>
-                            </div>
+                        <div style="margin-bottom: 32px;">
+                            <h4 style="margin-bottom: 8px; color: var(--text-primary);">${monthName} ${monthData.year}</h4>
+                            <p style="color: var(--text-secondary); margin-bottom: 16px; font-size: 0.85rem;">
+                                ${startFormatted} to ${endFormatted}
+                            </p>
                             <div class="result-grid">
-                                ${prayers.map(prayer => renderStatCard(prayer, monthData[prayer], monthData.totalDays)).join('')}
+                                ${prayers.map(prayer => {
+                                    const s = monthData[prayer];
+                                    const total = monthData.totalDays;
+                                    const onTimeP = total > 0 ? Math.round((s.onTime / total) * 100) : 0;
+                                    const qazaP = total > 0 ? Math.round((s.qazaDone / total) * 100) : 0;
+                                    const missedP = total > 0 ? Math.round((s.missed / total) * 100) : 0;
+
+                                    return `
+                                        <div class="result-item">
+                                            <div style="flex: 1;">
+                                                <div class="prayer-name">${prayer}</div>
+                                                <div style="font-size: 0.85rem; color: var(--text-secondary); margin-top: 8px;">
+                                                    On-time: <span style="color: var(--accent-primary); font-weight: 600;">${onTimeP}%</span> |
+                                                    Qaza: <span style="color: var(--accent-gold); font-weight: 600;">${qazaP}%</span> |
+                                                    Missed: <span style="color: #ef4444; font-weight: 600;">${missedP}%</span>
+                                                </div>
+                                                <div style="font-size: 0.8rem; color: var(--text-muted); margin-top: 4px;">
+                                                    ✓ ${s.onTime} | 🕌 ${s.qazaDone} | ✗ ${s.missed}
+                                                </div>
+                                            </div>
+                                        </div>
+                                    `;
+                                }).join('')}
                             </div>
                         </div>
                     `;
@@ -3197,9 +3181,15 @@
         }
 
         // Calendar
+        // Calendar navigation state
+        let calViewYear  = new Date().getFullYear();
+        let calViewMonth = new Date().getMonth(); // 0-11
+
         function showCalendar() {
-            const modal = document.getElementById('calendarModal');
-            modal.classList.add('active');
+            // Always open on today's month
+            calViewYear  = new Date().getFullYear();
+            calViewMonth = new Date().getMonth();
+            document.getElementById('calendarModal').classList.add('active');
             renderCalendar();
         }
 
@@ -3207,42 +3197,82 @@
             document.getElementById('calendarModal').classList.remove('active');
         }
 
+        function calNavMonth(dir) {
+            calViewMonth += dir;
+            if (calViewMonth > 11) { calViewMonth = 0;  calViewYear++; }
+            if (calViewMonth < 0)  { calViewMonth = 11; calViewYear--; }
+            renderCalendar();
+        }
+
+        function calNavYear(dir) {
+            calViewYear += dir;
+            renderCalendar();
+        }
+
+        function calGoToday() {
+            calViewYear  = new Date().getFullYear();
+            calViewMonth = new Date().getMonth();
+            renderCalendar();
+        }
+
         function renderCalendar() {
             const container = document.getElementById('calendarContainer');
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = today.getMonth();
-            
-            const firstDay = new Date(year, month, 1);
-            const lastDay = new Date(year, month + 1, 0);
-            const daysInMonth = lastDay.getDate();
-            const startDay = firstDay.getDay();
-            
-            let html = '<div style="text-align: center; margin-bottom: 16px; font-size: 1.2rem; font-weight: 600;">';
-            html += today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-            html += '</div>';
-            
+            const today     = new Date();
+            const todayStr  = toLocalYMD(today);
+            const year      = calViewYear;
+            const month     = calViewMonth;
+
+            const firstDay    = new Date(year, month, 1);
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const startDay    = firstDay.getDay();
+
+            const monthName = firstDay.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            const isCurrentMonth = year === today.getFullYear() && month === today.getMonth();
+
+            let html = '';
+
+            // ── Year navigation row ──────────────────────────────────────────
+            html += `<div style="display:flex;align-items:center;justify-content:center;gap:10px;margin-bottom:6px;">
+                <button onclick="calNavYear(-1)" style="background:var(--bg-secondary);border:none;color:var(--text-primary);font-size:1.1rem;width:32px;height:32px;border-radius:8px;cursor:pointer;font-weight:700;">‹‹</button>
+                <span style="font-size:1rem;font-weight:800;color:var(--accent-primary);min-width:42px;text-align:center;">${year}</span>
+                <button onclick="calNavYear(1)"  style="background:var(--bg-secondary);border:none;color:var(--text-primary);font-size:1.1rem;width:32px;height:32px;border-radius:8px;cursor:pointer;font-weight:700;">››</button>
+            </div>`;
+
+            // ── Month navigation row ─────────────────────────────────────────
+            html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;gap:6px;">
+                <button onclick="calNavMonth(-1)" style="background:var(--bg-secondary);border:none;color:var(--text-primary);font-size:1.2rem;width:36px;height:36px;border-radius:8px;cursor:pointer;font-weight:700;">‹</button>
+                <div style="text-align:center;flex:1;">
+                    <div style="font-size:1.05rem;font-weight:700;color:var(--text-primary);">${monthName}</div>
+                </div>
+                <button onclick="calNavMonth(1)"  style="background:var(--bg-secondary);border:none;color:var(--text-primary);font-size:1.2rem;width:36px;height:36px;border-radius:8px;cursor:pointer;font-weight:700;">›</button>
+            </div>`;
+
+            // ── Day grid ─────────────────────────────────────────────────────
             html += '<div class="calendar-grid">';
-            ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(day => {
-                html += `<div style="font-weight: 600; color: var(--text-secondary);">${day}</div>`;
+            ['S','M','T','W','T','F','S'].forEach(d => {
+                html += `<div style="font-weight:600;color:var(--text-secondary);font-size:0.8rem;">${d}</div>`;
             });
-            
-            for (let i = 0; i < startDay; i++) {
-                html += '<div></div>';
-            }
-            
+
+            for (let i = 0; i < startDay; i++) html += '<div></div>';
+
             for (let day = 1; day <= daysInMonth; day++) {
-                const date = new Date(year, month, day);
+                const date    = new Date(year, month, day);
                 const dateStr = toLocalYMD(date);
-                const isToday = day === today.getDate();
+                const isToday = dateStr === todayStr;
                 const profileId = profiles[currentProfile]?.id;
-                const hasData = profileId && prayerLogs[profileId] && prayerLogs[profileId][dateStr];
-                
-                html += `<div class="calendar-day ${isToday ? 'today' : ''} ${hasData ? 'has-data' : ''}" 
-                         onclick="selectDate('${dateStr}')">${day}</div>`;
+                const hasData   = profileId && prayerLogs[profileId]?.[dateStr];
+                html += `<div class="calendar-day ${isToday ? 'today' : ''} ${hasData ? 'has-data' : ''}"
+                             onclick="selectDate('${dateStr}')">${day}</div>`;
             }
-            
             html += '</div>';
+
+            // ── Today button ─────────────────────────────────────────────────
+            if (!isCurrentMonth) {
+                html += `<div style="text-align:center;margin-top:12px;">
+                    <button onclick="calGoToday()" style="background:var(--accent-primary);border:none;color:white;padding:7px 20px;border-radius:8px;font-size:0.85rem;font-weight:700;cursor:pointer;">Today</button>
+                </div>`;
+            }
+
             container.innerHTML = html;
         }
 
@@ -3306,7 +3336,7 @@
         window.addEventListener('load', init);
         
         // ── App version (must match sw.js BUILD_DATE) ───────────────────────
-        const APP_VERSION = '2026-02-26-v4';
+        const APP_VERSION = '2026-03-02-v1';
 
         // ── Detect new SW version and prompt user to refresh ────────────────
         if ('serviceWorker' in navigator) {
