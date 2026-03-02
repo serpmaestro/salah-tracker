@@ -453,68 +453,61 @@
             align-items: center;
         }
         
-        /* ── Qaza summary — fully vw-based so system font size never breaks layout ── */
         .qaza-summary {
             display: grid;
-            grid-template-columns: repeat(5, 1fr);
-            gap: 2vw;
+            /* Responsive: wraps to multiple rows on small phones so Isha never cuts */
+            grid-template-columns: repeat(auto-fit, minmax(90px, 1fr));
+            gap: 8px;
             margin-top: 12px;
         }
-
+        
         .qaza-item {
             text-align: center;
-            padding: 2vw 1vw;
+            padding: 12px 8px;
             background: var(--bg-card);
-            border-radius: 2.5vw;
+            border-radius: 12px;
             position: relative;
-            min-width: 0;
-            overflow: hidden;
         }
-
+        
         .qaza-item .name {
-            font-size: 3vw;
+            font-size: 0.75rem;
             color: var(--text-secondary);
-            margin-bottom: 1vw;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
+            margin-bottom: 4px;
         }
-
+        
         .qaza-item .count {
-            font-size: 4.5vw;
-            font-weight: 800;
+            font-size: 1.1rem;
+            font-weight: 700;
             color: var(--accent-gold);
-            margin-bottom: 1.5vw;
-            line-height: 1.1;
-            word-break: break-all;
+            margin-bottom: 8px;
         }
-
+        
         .qaza-item .controls {
             display: flex;
-            gap: 1vw;
+            gap: 4px;
             justify-content: center;
         }
-
+        
         .qaza-control-btn {
-            width: 6.5vw;
-            height: 6.5vw;
-            border-radius: 1.5vw;
+            width: 24px;
+            height: 24px;
+            border-radius: 6px;
             border: none;
             background: var(--bg-secondary);
             color: var(--text-primary);
-            font-size: 4vw;
+            font-size: 1rem;
             font-weight: 700;
             cursor: pointer;
             transition: all 0.2s ease;
             display: flex;
             align-items: center;
             justify-content: center;
-            flex-shrink: 0;
         }
-
+        
         .qaza-control-btn:hover {
             background: var(--accent-primary);
             color: white;
+            transform: scale(1.1);
         }
         
         .prayer-tracker-list {
@@ -1063,7 +1056,9 @@
                 font-size: 0.8rem;
             }
             
-            /* qaza-summary already 5-col vw-based above */
+            .qaza-summary {
+                grid-template-columns: repeat(5, 1fr);
+            }
             
             .prayer-actions {
                 grid-template-columns: 1fr;
@@ -1536,6 +1531,18 @@
         let currentReportType = 'daily';
         let deferredPrompt = null;
 
+        // App install date (used as fallback for older profiles that don't have createdAt)
+        const APP_INSTALL_KEY = 'qazaAppInstalledAt';
+        function getAppInstalledAtISO() {
+            let v = localStorage.getItem(APP_INSTALL_KEY);
+            if (!v) {
+                v = new Date().toISOString();
+                localStorage.setItem(APP_INSTALL_KEY, v);
+            }
+            return v;
+        }
+
+
         const prayers = ['Fajr', 'Dhuhr', 'Asr', 'Maghrib', 'Isha'];
         const frequencyOptions = [
             { value: 'always', label: 'Always', multiplier: 0 },
@@ -1944,8 +1951,9 @@
             checkInstallPrompt();
             updateCalendarIcon(currentViewingDate);
             
-            // Auto-check missed prayers
-            setInterval(checkMissedPrayers, 60000); // Check every minute
+            // Run missed sweep immediately on open, then every 60s
+            checkMissedPrayers();
+            setInterval(checkMissedPrayers, 60000);
 
             // Update home prayer card timer (remaining time + clock)
             setInterval(() => {
@@ -2047,6 +2055,7 @@
             saveState();
             
             if (screenId === 'trackerScreen') {
+                checkMissedPrayers();
                 updateTracker();
             } else if (screenId === 'reportsScreen') {
                 generateReport();
@@ -2102,7 +2111,7 @@
             // Backward compatibility for older saves
             profiles.forEach(p => {
                 if (typeof p.hijriOffsetDays !== 'number') p.hijriOffsetDays = 0;
-                if (!p.createdAt) p.createdAt = new Date().toISOString();
+                if (!p.createdAt) p.createdAt = getAppInstalledAtISO();
                 if (!p.prayerAdjustments) p.prayerAdjustments = { Fajr: 0, Dhuhr: 0, Asr: 0, Maghrib: 0, Isha: 0 };
             });
         }
@@ -2518,28 +2527,57 @@
             const now = new Date();
             const isToday = viewDate === now.toISOString().split('T')[0];
             
-            listEl.innerHTML = prayers.map(prayer => {
+            
+            // Auto-mark TODAY's past prayers as missed (once) if user didn't press Done or Qaza.
+            // Example: if it's Isha time now, Maghrib becomes missed automatically.
+            if (isToday) {
+                let changedToday = false;
+
+                prayers.forEach((prayer, idx) => {
+                    // Isha has no "next prayer" on today's view, so we never auto-mark Isha here.
+                    if (idx < prayers.length - 1) {
+                        const nextStart = parseTimeOnDate(prayerTimes[prayers[idx + 1]].start, now);
+                        const isPast = now > nextStart;
+                        const s = dayLogs[prayer] || 'none';
+
+                        if (isPast && (s === 'none' || !s)) {
+                            dayLogs[prayer] = 'missed';
+                            profiles[currentProfile].qazaCount[prayer] = (profiles[currentProfile].qazaCount[prayer] || 0) + 1;
+                            changedToday = true;
+                        }
+                    }
+                });
+
+                if (changedToday) saveData();
+            }
+
+listEl.innerHTML = prayers.map(prayer => {
                 const status = dayLogs[prayer] || 'none';
                 const times = prayerTimes[prayer];
-                const endTime = parseTime(times.end);
-                const isPastTime = isToday && now > endTime;
-                const isAutoMissed = isPastTime && status === 'none';
-                
-                // Auto-mark as missed if time passed and no action taken
-                if (isAutoMissed) {
-                    dayLogs[prayer] = 'missed';
-                    profiles[currentProfile].qazaCount[prayer]++;
-                    saveData();
+                const pIdx = prayers.indexOf(prayer);
+
+                // isPastTime = purely for UI (greying buttons).
+                // For TODAY: a prayer is past when the NEXT prayer's start has arrived.
+                //   Isha has no next prayer → never isPastTime on today's view.
+                // For past dates: always true (all prayers are in the past).
+                // NO auto-marking here — checkMissedPrayers handles all marking safely.
+                let isPastTime = false;
+                if (!isToday) {
+                    isPastTime = true;
+                } else if (pIdx < prayers.length - 1) {
+                    const nextStart = parseTimeOnDate(prayerTimes[prayers[pIdx + 1]].start, now);
+                    isPastTime = now > nextStart;
                 }
-                
+                // Isha on today: isPastTime stays false
+
                 const finalStatus = dayLogs[prayer] || 'none';
                 const missedDisabled = finalStatus === 'missed' && isPastTime;
-                
+
                 return `
                     <div class="prayer-tracker-item">
                         <div class="prayer-tracker-header">
                             <span class="prayer-tracker-name">${prayer}</span>
-                            <span class="prayer-time">${times.start} - ${times.end}</span>
+                            <span class="prayer-time">${times.start}${prayer === 'Isha' && isToday ? ' — Until Fajr' : ' - ' + times.end}</span>
                         </div>
                         <div class="prayer-actions">
                             <button class="prayer-action-btn ${finalStatus === 'done' || finalStatus === 'both' ? 'active' : ''}" 
@@ -2621,33 +2659,53 @@
         }
 
         // Auto-check missed prayers
+        // Marks all unrecorded prayers on PAST dates as missed.
+        // Runs once per calendar day per profile (daily guard prevents double-counting).
+        // Sweeps from profile creation date — catches every day since install.
+        // Never touches today. Never overwrites done/qaza/already-missed entries.
         function checkMissedPrayers() {
             if (currentProfile === null) return;
-            
-            const now = new Date();
-            const today = now.toISOString().split('T')[0];
-            const profileId = profiles[currentProfile].id;
-            
+
+            const now       = new Date();
+            const today     = toLocalYMD(now);
+            const profile   = profiles[currentProfile];
+            const profileId = profile.id;
+
+            // Daily guard — only run once per calendar day per profile
+            const guardKey = 'mChk_' + profileId;
+            if (localStorage.getItem(guardKey) === today) return;
+            localStorage.setItem(guardKey, today);
+
             if (!prayerLogs[profileId]) prayerLogs[profileId] = {};
-            if (!prayerLogs[profileId][today]) prayerLogs[profileId][today] = {};
-            
-            const todayLogs = prayerLogs[profileId][today];
-            
-            prayers.forEach(prayer => {
-                const times = prayerTimes[prayer];
-                const endTime = parseTime(times.end);
-                const currentStatus = todayLogs[prayer] || 'none';
-                
-                if (now > endTime && currentStatus === 'none') {
-                    // Time passed and no action taken
-                    todayLogs[prayer] = 'missed';
-                    profiles[currentProfile].qazaCount[prayer]++;
-                }
-            });
-            
-            saveData();
-            if (document.querySelector('.screen.active')?.id === 'trackerScreen') {
-                updateTracker();
+
+            // Start from profile creation date (covers ALL history since install)
+            const startDate = new Date(profile.createdAt || now);
+            startDate.setHours(0, 0, 0, 0);
+
+            let changed = false;
+            const cursor = new Date(startDate);
+
+            while (toLocalYMD(cursor) < today) {   // strictly before today
+                const dateStr = toLocalYMD(cursor);
+                if (!prayerLogs[profileId][dateStr])
+                    prayerLogs[profileId][dateStr] = {};
+                const dayLogs = prayerLogs[profileId][dateStr];
+
+                prayers.forEach(prayer => {
+                    const s = dayLogs[prayer];
+                    if (!s || s === 'none') {        // only blank/none entries
+                        dayLogs[prayer] = 'missed';
+                        profile.qazaCount[prayer] = (profile.qazaCount[prayer] || 0) + 1;
+                        changed = true;
+                    }
+                });
+                cursor.setDate(cursor.getDate() + 1);
+            }
+
+            if (changed) {
+                saveData();
+                if (document.querySelector('.screen.active')?.id === 'trackerScreen')
+                    updateTracker();
             }
         }
 
@@ -3167,9 +3225,13 @@
         }
 
         // Calendar
+        let calViewYear  = new Date().getFullYear();
+        let calViewMonth = new Date().getMonth();
+
         function showCalendar() {
-            const modal = document.getElementById('calendarModal');
-            modal.classList.add('active');
+            calViewYear  = new Date().getFullYear();
+            calViewMonth = new Date().getMonth();
+            document.getElementById('calendarModal').classList.add('active');
             renderCalendar();
         }
 
@@ -3177,42 +3239,66 @@
             document.getElementById('calendarModal').classList.remove('active');
         }
 
+        function calNav(mDelta, yDelta) {
+            calViewMonth += mDelta;
+            calViewYear  += yDelta;
+            if (calViewMonth > 11) { calViewMonth = 0;  calViewYear++; }
+            if (calViewMonth < 0)  { calViewMonth = 11; calViewYear--; }
+            renderCalendar();
+        }
+
         function renderCalendar() {
-            const container = document.getElementById('calendarContainer');
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = today.getMonth();
-            
-            const firstDay = new Date(year, month, 1);
-            const lastDay = new Date(year, month + 1, 0);
-            const daysInMonth = lastDay.getDate();
-            const startDay = firstDay.getDay();
-            
-            let html = '<div style="text-align: center; margin-bottom: 16px; font-size: 1.2rem; font-weight: 600;">';
-            html += today.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-            html += '</div>';
-            
+            const container   = document.getElementById('calendarContainer');
+            const today       = new Date();
+            const todayStr    = toLocalYMD(today);
+            const year        = calViewYear;
+            const month       = calViewMonth;
+            const firstDay    = new Date(year, month, 1);
+            const daysInMonth = new Date(year, month + 1, 0).getDate();
+            const startDay    = firstDay.getDay();
+            const monthLabel  = firstDay.toLocaleDateString('en-US', { month: 'long' });
+            const isNow       = year === today.getFullYear() && month === today.getMonth();
+
+            const navBtn = (label, fn) =>
+                `<button onclick="${fn}" style="background:var(--bg-secondary);border:1px solid var(--border);color:var(--text-primary);width:34px;height:34px;border-radius:8px;cursor:pointer;font-size:1rem;font-weight:700;">${label}</button>`;
+
+            let html = '';
+
+            // Year row
+            html += `<div style="display:flex;align-items:center;justify-content:center;gap:12px;margin-bottom:8px;">
+                ${navBtn('«', "calNav(0,-1)")}
+                <span style="font-size:1.1rem;font-weight:800;color:var(--accent-primary);min-width:52px;text-align:center;">${year}</span>
+                ${navBtn('»', "calNav(0,1)")}
+            </div>`;
+
+            // Month row
+            html += `<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+                ${navBtn('‹', "calNav(-1,0)")}
+                <span style="font-size:1rem;font-weight:700;color:var(--text-primary);">${monthLabel} ${year}</span>
+                ${navBtn('›', "calNav(1,0)")}
+            </div>`;
+
+            // Day headers
             html += '<div class="calendar-grid">';
-            ['S', 'M', 'T', 'W', 'T', 'F', 'S'].forEach(day => {
-                html += `<div style="font-weight: 600; color: var(--text-secondary);">${day}</div>`;
-            });
-            
-            for (let i = 0; i < startDay; i++) {
-                html += '<div></div>';
-            }
-            
+            ['S','M','T','W','T','F','S'].forEach(d =>
+                html += `<div style="font-weight:600;color:var(--text-secondary);font-size:0.8rem;text-align:center;">${d}</div>`
+            );
+            for (let i = 0; i < startDay; i++) html += '<div></div>';
             for (let day = 1; day <= daysInMonth; day++) {
-                const date = new Date(year, month, day);
-                const dateStr = toLocalYMD(date);
-                const isToday = day === today.getDate();
+                const dateStr   = toLocalYMD(new Date(year, month, day));
+                const isToday   = dateStr === todayStr;
                 const profileId = profiles[currentProfile]?.id;
-                const hasData = profileId && prayerLogs[profileId] && prayerLogs[profileId][dateStr];
-                
-                html += `<div class="calendar-day ${isToday ? 'today' : ''} ${hasData ? 'has-data' : ''}" 
-                         onclick="selectDate('${dateStr}')">${day}</div>`;
+                const hasData   = profileId && prayerLogs[profileId]?.[dateStr];
+                html += `<div class="calendar-day ${isToday ? 'today' : ''} ${hasData ? 'has-data' : ''}"
+                             onclick="selectDate('${dateStr}')">${day}</div>`;
             }
-            
             html += '</div>';
+
+            if (!isNow) {
+                html += `<div style="text-align:center;margin-top:14px;">
+                    <button onclick="showCalendar()" style="background:var(--accent-primary);border:none;color:white;padding:8px 24px;border-radius:10px;font-size:0.85rem;font-weight:700;cursor:pointer;">Today</button>
+                </div>`;
+            }
             container.innerHTML = html;
         }
 
@@ -3276,7 +3362,7 @@
         window.addEventListener('load', init);
         
         // ── App version (must match sw.js BUILD_DATE) ───────────────────────
-        const APP_VERSION = '2026-03-02-v2';
+        const APP_VERSION = '2026-03-02-v4';
 
         // ── Detect new SW version and prompt user to refresh ────────────────
         if ('serviceWorker' in navigator) {
