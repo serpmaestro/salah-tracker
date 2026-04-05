@@ -1483,6 +1483,41 @@
     </div>
 
 
+    <!-- Restore Backup Modal (shown on fresh install / no profiles) -->
+    <div id="restoreModal" class="modal">
+        <div class="modal-content" style="text-align:center;">
+            <div style="font-size:2.5rem;margin-bottom:12px;">🕌</div>
+            <h2 style="font-size:1.3rem;margin-bottom:10px;">Welcome Back!</h2>
+            <p style="color:var(--text-secondary);font-size:0.92rem;margin-bottom:24px;line-height:1.7;">
+                No prayer data found on this device.<br>
+                Do you have a backup file to restore?
+            </p>
+            <button class="btn" onclick="document.getElementById('restoreFileInput').click()" style="margin-bottom:12px;">
+                📂 Restore from Backup
+            </button>
+            <br>
+            <button class="btn btn-secondary" onclick="document.getElementById('restoreModal').classList.remove('active')" style="margin-top:4px;">
+                Start Fresh
+            </button>
+            <input type="file" id="restoreFileInput" accept=".json" style="display:none;" onchange="restoreFromBackupFile(event)">
+        </div>
+    </div>
+
+    <!-- Daily Backup Banner -->
+    <div id="backupBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:999;
+         background:linear-gradient(135deg,#065f46,#047857);padding:14px 20px;
+         display:none;align-items:center;justify-content:space-between;gap:12px;
+         border-top:1px solid rgba(16,185,129,0.4);">
+        <div style="font-size:0.85rem;color:#d1fae5;line-height:1.4;">
+            <strong style="color:#fff;">💾 Daily Backup Ready</strong><br>
+            <span style="opacity:0.85;">Tap to save to Downloads</span>
+        </div>
+        <div style="display:flex;gap:8px;flex-shrink:0;">
+            <button onclick="doAutoBackupDownload()" style="background:#10b981;border:none;color:white;padding:8px 16px;border-radius:10px;font-size:0.85rem;font-weight:700;cursor:pointer;">Save</button>
+            <button onclick="dismissBackupBanner()" style="background:rgba(255,255,255,0.15);border:none;color:white;padding:8px 12px;border-radius:10px;font-size:0.85rem;cursor:pointer;">✕</button>
+        </div>
+    </div>
+
     <!-- Hijri Date Adjustment Modal -->
     <div id="hijriModal" class="modal">
         <div class="modal-content">
@@ -1935,28 +1970,177 @@
 
 
         // Initialize
+        // ══════════════════════════════════════════════════════════════════════
+        //  AUTO BACKUP SYSTEM
+        //  - Daily: shows banner → user taps Save → downloads fixed-name JSON
+        //  - Fixed filename: QazaTracker-backup.json (overwrites in Downloads)
+        //  - Midnight scheduler auto-shows banner for next day
+        //  - On fresh install (no profiles): shows restore modal
+        // ══════════════════════════════════════════════════════════════════════
+
+        function getBackupPayload() {
+            return JSON.stringify({
+                profiles,
+                prayerLogs,
+                version: '2.0',
+                appName: 'QazaTracker',
+                savedAt: new Date().toISOString()
+            }, null, 2);
+        }
+
+        function doAutoBackupDownload() {
+            const blob = new Blob([getBackupPayload()], { type: 'application/json' });
+            const url  = URL.createObjectURL(blob);
+            const a    = document.createElement('a');
+            a.href     = url;
+            a.download = 'QazaTracker-backup.json'; // fixed name → always overwrites
+            document.body.appendChild(a);
+            a.click();
+            setTimeout(() => { URL.revokeObjectURL(url); a.remove(); }, 800);
+            localStorage.setItem('autoBackupDate', toLocalYMD(new Date()));
+            dismissBackupBanner();
+        }
+
+        function dismissBackupBanner() {
+            const b = document.getElementById('backupBanner');
+            if (b) b.style.display = 'none';
+        }
+
+        function showBackupBanner() {
+            if (profiles.length === 0) return; // nothing to back up
+            const b = document.getElementById('backupBanner');
+            if (b) b.style.display = 'flex';
+        }
+
+        function checkAndScheduleBackup() {
+            const today = toLocalYMD(new Date());
+            if (localStorage.getItem('autoBackupDate') !== today) {
+                // Not backed up today → show banner
+                showBackupBanner();
+            }
+
+            // Schedule for next midnight
+            const now      = new Date();
+            const midnight = new Date(now);
+            midnight.setDate(midnight.getDate() + 1);
+            midnight.setHours(0, 1, 0, 0); // 12:01 AM
+            const ms = midnight - now;
+            setTimeout(() => {
+                showBackupBanner();
+                // Repeat every 24h
+                setInterval(showBackupBanner, 24 * 60 * 60 * 1000);
+            }, ms);
+        }
+
+        // Restore from a JSON backup file (called by restore modal + existing import)
+        function restoreFromBackupFile(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                try {
+                    const backup = JSON.parse(e.target.result);
+                    if (!backup.profiles) { alert('Invalid backup file'); return; }
+                    profiles   = backup.profiles;
+                    prayerLogs = backup.prayerLogs || {};
+                    saveData();
+                    // Reset missed-check guard so it runs fresh
+                    profiles.forEach(p => localStorage.removeItem('mChk_' + p.id + '_' + APP_VERSION));
+                    document.getElementById('restoreModal').classList.remove('active');
+                    renderProfiles();
+                    checkMissedPrayers();
+                    alert('✅ Data restored successfully! (' + profiles.length + ' profile' + (profiles.length !== 1 ? 's' : '') + ')');
+                } catch (err) {
+                    alert('Invalid backup file');
+                }
+                event.target.value = '';
+            };
+            reader.readAsText(file);
+        }
+
+        function checkFreshInstall() {
+            // Show restore modal if no profiles and this is a fresh install
+            if (profiles.length === 0 && !localStorage.getItem('freshInstallChecked')) {
+                localStorage.setItem('freshInstallChecked', '1');
+                document.getElementById('restoreModal').classList.add('active');
+            }
+        }
+
+        // ══════════════════════════════════════════════════════════════════════
+        //  MISSED PRAYERS — sweeps from profile.createdAt every new build
+        // ══════════════════════════════════════════════════════════════════════
+        function checkMissedPrayers() {
+            if (currentProfile === null) return;
+
+            const now       = new Date();
+            const today     = toLocalYMD(now);
+            const profile   = profiles[currentProfile];
+            const profileId = profile.id;
+
+            // Guard includes APP_VERSION: new build resets guard → re-sweeps all history
+            const guardKey = 'mChk_' + profileId + '_' + APP_VERSION;
+            if (localStorage.getItem(guardKey) === today) return;
+            localStorage.setItem(guardKey, today);
+
+            if (!prayerLogs[profileId]) prayerLogs[profileId] = {};
+
+            const startDate = new Date(profile.createdAt || now);
+            startDate.setHours(0, 0, 0, 0);
+            let changed = false;
+            const cursor = new Date(startDate);
+
+            while (toLocalYMD(cursor) < today) {
+                const dateStr = toLocalYMD(cursor);
+                if (!prayerLogs[profileId][dateStr])
+                    prayerLogs[profileId][dateStr] = {};
+                const dayLogs = prayerLogs[profileId][dateStr];
+                prayers.forEach(prayer => {
+                    const s = dayLogs[prayer];
+                    if (!s || s === 'none') {
+                        dayLogs[prayer] = 'missed';
+                        profile.qazaCount[prayer] = (profile.qazaCount[prayer] || 0) + 1;
+                        changed = true;
+                    }
+                });
+                cursor.setDate(cursor.getDate() + 1);
+            }
+
+            if (changed) {
+                saveData();
+                if (document.querySelector('.screen.active')?.id === 'trackerScreen')
+                    updateTracker();
+            }
+        }
+
         function init() {
             loadData();
             restoreState();
+            // Always show today's date when opening app (not last viewed date)
+            currentViewingDate = toLocalYMD(new Date());
             renderProfiles();
             updateBackButton();
             setupManifest();
             checkInstallPrompt();
             updateCalendarIcon(currentViewingDate);
-            
-            // Auto-check missed prayers
-            // Run missed sweep immediately on open (catches all history since profile creation)
+
+            // Fresh install check
+            checkFreshInstall();
+
+            // Past-date missed sweep on open, then every 60s
             checkMissedPrayers();
             setInterval(checkMissedPrayers, 60000);
 
-            // Every 60s: refresh home card + prayer list live so prayers auto-highlight
-            // missed the moment the next prayer's start time arrives
+            // Every 60s: refresh home card + prayer list live
+            // so today's prayers auto-highlight the moment the next prayer starts
             setInterval(() => {
                 if (document.getElementById('trackerScreen')?.classList.contains('active')) {
                     updatePrayerHomeCard();
                     updatePrayerList();
                 }
             }, 60000);
+
+            // Daily backup system
+            checkAndScheduleBackup();
         }
         
         function saveState() {
@@ -2528,9 +2712,9 @@
                 const status = dayLogs[prayer] || 'none';
 
                 // isPastTime:
-                //   Past date        → always true
-                //   Today Fajr–Maghrib → true when NEXT prayer's START has arrived
-                //   Today Isha       → never true (marked missed tomorrow by checkMissedPrayers)
+                //   Past date          → always true
+                //   Today Fajr–Maghrib → true when NEXT prayer's START arrives
+                //   Today Isha         → never true (marked missed tomorrow)
                 let isPastTime = false;
                 if (!isToday) {
                     isPastTime = true;
@@ -2635,56 +2819,6 @@
         }
 
         // Auto-check missed prayers
-        // Sweeps all past dates from profile creation date → marks unrecorded prayers missed.
-        // Guard key includes APP_VERSION: every new build upload resets the guard and
-        // re-runs the full sweep so overriding the app always catches all missed prayers.
-        // Never touches today — updatePrayerList handles today live every 60s.
-        function checkMissedPrayers() {
-            if (currentProfile === null) return;
-
-            const now       = new Date();
-            const today     = toLocalYMD(now);
-            const profile   = profiles[currentProfile];
-            const profileId = profile.id;
-
-            // Guard: once per calendar day per profile per app version
-            // New build = new APP_VERSION = guard resets = full sweep runs again
-            const guardKey = 'mChk_' + profileId + '_' + APP_VERSION;
-            if (localStorage.getItem(guardKey) === today) return;
-            localStorage.setItem(guardKey, today);
-
-            if (!prayerLogs[profileId]) prayerLogs[profileId] = {};
-
-            // Sweep from exact profile creation date (every day since install)
-            const startDate = new Date(profile.createdAt || now);
-            startDate.setHours(0, 0, 0, 0);
-
-            let changed = false;
-            const cursor = new Date(startDate);
-
-            while (toLocalYMD(cursor) < today) {        // strictly before today
-                const dateStr = toLocalYMD(cursor);
-                if (!prayerLogs[profileId][dateStr])
-                    prayerLogs[profileId][dateStr] = {};
-                const dayLogs = prayerLogs[profileId][dateStr];
-                prayers.forEach(prayer => {
-                    const s = dayLogs[prayer];
-                    if (!s || s === 'none') {            // never overwrite done/qaza/missed
-                        dayLogs[prayer] = 'missed';
-                        profile.qazaCount[prayer] = (profile.qazaCount[prayer] || 0) + 1;
-                        changed = true;
-                    }
-                });
-                cursor.setDate(cursor.getDate() + 1);
-            }
-
-            if (changed) {
-                saveData();
-                if (document.querySelector('.screen.active')?.id === 'trackerScreen')
-                    updateTracker();
-            }
-        }
-
         function parseTime(timeStr) {
             const [time, period] = timeStr.split(' ');
             let [hours, minutes] = time.split(':').map(Number);
@@ -3302,36 +3436,14 @@
         }
 
         function importBackup(event) {
-            const file = event.target.files[0];
-            if (!file) return;
-            
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                try {
-                    const backup = JSON.parse(e.target.result);
-                    
-                    if (confirm('This will replace all current data. Continue?')) {
-                        profiles = backup.profiles || [];
-                        prayerLogs = backup.prayerLogs || {};
-                        saveData();
-                        renderProfiles();
-                        alert('Backup imported successfully!');
-                    }
-                } catch (err) {
-                    alert('Invalid backup file');
-                }
-                
-                // Reset file input
-                event.target.value = '';
-            };
-            reader.readAsText(file);
+            restoreFromBackupFile(event);
         }
 
         // Initialize on load
         window.addEventListener('load', init);
         
         // ── App version (must match sw.js BUILD_DATE) ───────────────────────
-        const APP_VERSION = '2026-03-06-v1';
+        const APP_VERSION = '2026-03-06-v2';
 
         // ── Detect new SW version and prompt user to refresh ────────────────
         if ('serviceWorker' in navigator) {
